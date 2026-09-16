@@ -28,6 +28,27 @@ random.seed(42)
 GPKG_PATH = Path(__file__).resolve().parents[1] / "data" / "NUTS_RG_20M_2024_4326.gpkg"
 GPKG_TABLE = "NUTS_RG_20M_2024_4326"
 
+# Higher-resolution (GISCO 1:1M, vs. the 20M above) boundaries for just the
+# 14 outermost-region NUTS3 codes (Canarias x7, Açores, Madeira, and the 5
+# French RUP) — at 20M their coastlines are coarse enough to look visibly
+# faceted once docs/index.html zooms its outermost-region inset mini-maps in
+# tight on a single small island, even though that same coarseness is
+# invisible zoomed out to all of Europe (reported by the user from a live
+# screenshot). Fetched once from GISCO's own GeoJSON distribution
+# (https://gisco-services.ec.europa.eu/distribution/v2/nuts/geojson/
+# NUTS_RG_01M_2024_4326_LEVL_3.geojson, ~27MB for the whole of Europe) and
+# filtered down to just these 14 features — the checked-in file is ~190KB,
+# not the full continent at 1M resolution. Every other region keeps the 20M
+# geometry unchanged; this never touches the main map, only the 8 insets.
+OUTERMOST_HIRES_PATH = Path(__file__).resolve().parents[1] / "data" / "outermost_regions_01M_4326.geojson"
+
+
+def load_outermost_hires_geometries(path=OUTERMOST_HIRES_PATH):
+    """{NUTS_ID: geometry} for the 14 outermost regions, at 1M resolution."""
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    return {f["properties"]["NUTS_ID"]: f["geometry"] for f in data["features"]}
+
 # Each of the 5 top-level indicators ("domains") is itself the combination of
 # 3 base sub-indicators — matching JUSTPLACE's own domain descriptions (Task
 # 4.1, docs/methodology.md / materials/Proposal-SEP-211195008.pdf p.154), not
@@ -269,8 +290,12 @@ OUT_DIR = Path(__file__).resolve().parents[1] / "docs" / "data" / "processed"
 def load_all_nuts3_regions(gpkg_path=GPKG_PATH, table=GPKG_TABLE):
     """Every NUTS3 region in the GISCO GeoPackage, as (properties, geometry)
     pairs — read once and reused for both the indicator table and the
-    GeoJSON, so the ~1345 geometries aren't decoded twice."""
-    return read_features(gpkg_path, table, ["NUTS_ID", "NAME_LATN"], where_sql="LEVL_CODE = 3")
+    GeoJSON, so the ~1345 geometries aren't decoded twice. The 14 outermost
+    regions get their geometry swapped for the higher-resolution version
+    (see OUTERMOST_HIRES_PATH above); every other region is unaffected."""
+    regions = read_features(gpkg_path, table, ["NUTS_ID", "NAME_LATN"], where_sql="LEVL_CODE = 3")
+    hires = load_outermost_hires_geometries()
+    return [(props, hires.get(props["NUTS_ID"], geometry)) for props, geometry in regions]
 
 
 def make_indicator_table(regions):
