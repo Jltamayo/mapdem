@@ -465,7 +465,13 @@
       link.title = "Export map (+ selected region) as PDF";
       link.setAttribute("role", "button");
       link.textContent = "\u{1F5B6}"; // printer emoji, no extra icon asset needed
-      link.style.fontSize = "15px";
+      // Match the layers-switcher button's own size (44x44, Leaflet's
+      // built-in .leaflet-control-layers-toggle default) instead of the
+      // smaller 30x30 a plain .leaflet-bar button gets by default.
+      link.style.width = "44px";
+      link.style.height = "44px";
+      link.style.lineHeight = "44px";
+      link.style.fontSize = "22px";
       L.DomEvent.disableClickPropagation(container);
       L.DomEvent.on(link, "click", (e) => {
         L.DomEvent.preventDefault(e);
