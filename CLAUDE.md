@@ -61,9 +61,10 @@ re-check something.
   this folder — see `materials/` below.
 - `materials/` — non-public project/admin documents not meant for GitHub Pages, e.g.
   `Proposal-SEP-211195008.pdf` (moved out of `docs/` on 2026-09-16 for exactly this reason).
-- `data/` — NUTS geometries (`NUTS_RG_20M_2024_4326.gpkg`, real GISCO 2024, EPSG:4326 — the one the
-  pipeline actually uses; `..._3035.gpkg` also present but unused) and partner deliveries not
-  served publicly (`data/raw/`)
+- `data/` — NUTS geometries: `NUTS_RG_10M_2024_4326.gpkg` (real GISCO 2024, EPSG:4326 — the one the
+  pipeline actually uses for the main map, since 2026-09-16) and `outermost_regions_01M_4326.geojson`
+  (higher-resolution GISCO 1M boundaries for just the 14 outermost-region NUTS3 codes, since those
+  are rendered zoomed in tight); plus partner deliveries not served publicly (`data/raw/`)
 - `.claude/PROJECT_PROTOCOL.md` — resolved project-specific parameters
 - `.claude/PROJECT_MEMORY.md` — append-only history of work sessions
 - `.claude/skills/` — academic-manuscript skill suite (see `.claude/skills/README.md` for how it
@@ -129,5 +130,5 @@ general, not only to the six manuscript skills):
 - Indicator values currently in this repo (`docs/data/processed/synthetic_indicators.csv`, one row
   per real NUTS3 region) are synthetic placeholders, not real observations — never present them as
   empirical results.
-- NUTS3 boundaries ARE real (Eurostat GISCO 2024, `data/NUTS_RG_20M_2024_4326.gpkg`, all 1345
+- NUTS3 boundaries ARE real (Eurostat GISCO 2024, `data/NUTS_RG_10M_2024_4326.gpkg`, all 1345
   regions) — this is not placeholder data, only the indicator values are.
