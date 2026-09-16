@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>MAPDEM — prototype</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  html, body { height: 100%; margin: 0; font-family: -apple-system, Arial, sans-serif; }
+  body { display: flex; flex-direction: column; }
+
+  /* Each tab's underline/text color is set inline per-button (--tab-color,
+     from the domain's own hue) so the tab bar doubles as a color key —
+     visible even before clicking, not just once a tab is active. */
+  #domainTabs { flex: 0 0 auto; display: flex; background: #f3f4f6; border-bottom: 1px solid #ccc; }
+  #domainTabs button { flex: 1; padding: 10px 6px; border: none; background: none; cursor: pointer;
+                        font-size: 13px; color: #52514e; font-family: inherit;
+                        border-bottom: 3px solid color-mix(in srgb, var(--tab-color) 35%, transparent); }
+  #domainTabs button:hover { background: #e8e9eb; }
+  #domainTabs button.active { border-bottom-color: var(--tab-color); color: var(--tab-color); font-weight: bold; }
+
+  #app { display: flex; flex: 1 1 auto; min-height: 0; }
+  #mapWrap { flex: 2 1 0; position: relative; min-width: 0; }
+  /* Padding/border go on #panelInner, not #panel itself: padding directly on
+     a `flex-basis: 0` flex item skews Chromium's free-space distribution
+     (the padding's fixed px size gets added on top of its proportional
+     share instead of being absorbed by it — a real, documented flexbox
+     quirk, confirmed by isolating it in a minimal repro). Keeping #panel
+     itself free of padding/border is what makes the 2:1 split exact. */
+  #panel { flex: 1 1 0; min-width: 0; overflow-y: auto; }
+  #panelInner { padding: 16px; box-sizing: border-box; border-left: 1px solid #ddd; }
+  #banner { position: absolute; z-index: 1000; top: 10px; left: 50px; right: 250px; background: white;
+            padding: 6px 12px; border-radius: 4px; font-size: 13px; box-shadow: 0 1px 4px rgba(0,0,0,.3);
+            box-sizing: border-box; }
+  h2 { margin: 0 0 6px; font-size: 15px; color: #1F3864; }
+  #domainHeading { font-size: 15px; font-weight: bold; color: #1F3864; margin-bottom: 2px; }
+  #domainDesc { font-size: 12px; color: #898781; margin-bottom: 8px; }
+  #regionTitle { font-size: 18px; font-weight: bold; margin-bottom: 3px; }
+  #regionHint { color: #777; font-size: 12px; margin-bottom: 10px; }
+  .no-data-note { color: #b00; font-size: 12px; margin-top: 8px; }
+  canvas { max-width: 100%; }
+  #refLegend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; font-size: 12px; color: #52514e; }
+  #refLegend label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  #refLegend .swatch { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
+  #refCaption { font-size: 11px; color: #898781; margin-top: 6px; }
+
+  /* Choropleth gradient legend, bottom-left of the map. */
+  #choroplethLegend { position: absolute; z-index: 1000; bottom: 10px; left: 10px; background: white;
+                       padding: 6px 10px; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,.3);
+                       font-size: 11px; color: #52514e; }
+  #choroplethLegend .gradientBar { width: 140px; height: 10px; border-radius: 2px; margin: 3px 0; }
+  #choroplethLegend .gradientLabels { display: flex; justify-content: space-between; }
+
+  /* Outermost-regions inset — mirrors the standard EU-map convention (e.g.
+     Eurostat's own reference maps): each outermost region gets its own
+     small framed mini-map, stacked in a corner, rather than distorting the
+     main map's zoom/bounds to fit territories thousands of km from the
+     mainland. */
+  #outermostInset { position: absolute; z-index: 1000; top: 10px; right: 10px;
+                     width: 230px; display: flex; flex-direction: column; gap: 4px; }
+  .outermostRow { display: flex; gap: 4px; }
+  .outermostBox { background: white; border: 1px solid #999; box-shadow: 0 1px 4px rgba(0,0,0,.2);
+                   display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .outermostBox .obLabel { font-size: 10px; font-weight: bold; color: #1F3864;
+                            padding: 2px 5px; border-bottom: 1px solid #eee; white-space: nowrap;
+                            overflow: hidden; text-overflow: ellipsis; }
+  .outermostBox .obMap { height: 62px; }
+  .outermostBox.obWide .obMap { height: 78px; }
+</style>
+</head>
+<body>
+<div id="domainTabs"></div>
+<div id="app">
+  <div id="mapWrap">
+    <div id="banner">Click a region — map and chart stay in sync (real NUTS3 boundaries, GISCO 2024; indicator values are still synthetic)</div>
+    <div id="map" style="height:100%"></div>
+    <div id="choroplethLegend">
+      <div id="choroplethLegendTitle">Worse → better</div>
+      <div class="gradientBar" id="choroplethGradientBar"></div>
+      <div class="gradientLabels"><span>Worse</span><span>Better</span><span>No data</span></div>
+    </div>
+    <div id="outermostInset">
+      <div class="outermostBox obWide"><div class="obLabel">Canarias</div><div class="obMap" id="ob_canarias"></div></div>
+      <div class="outermostBox obWide"><div class="obLabel">Açores</div><div class="obMap" id="ob_acores"></div></div>
+      <div class="outermostRow">
+        <div class="outermostBox"><div class="obLabel">Madeira</div><div class="obMap" id="ob_madeira"></div></div>
+        <div class="outermostBox"><div class="obLabel">Guyane</div><div class="obMap" id="ob_guyane"></div></div>
+      </div>
+      <div class="outermostRow">
+        <div class="outermostBox"><div class="obLabel">Guadeloupe</div><div class="obMap" id="ob_guadeloupe"></div></div>
+        <div class="outermostBox"><div class="obLabel">Réunion</div><div class="obMap" id="ob_reunion"></div></div>
+      </div>
+      <div class="outermostRow">
+        <div class="outermostBox"><div class="obLabel">Martinique</div><div class="obMap" id="ob_martinique"></div></div>
+        <div class="outermostBox"><div class="obLabel">Mayotte</div><div class="obMap" id="ob_mayotte"></div></div>
+      </div>
+    </div>
+  </div>
+  <div id="panel">
+    <div id="panelInner">
+      <h2>MAPDEM — linked views prototype</h2>
+      <div id="domainHeading"></div>
+      <div id="domainDesc"></div>
+      <div id="regionTitle">No region selected</div>
+      <div id="regionHint">Click any region on the map to see its indicator breakdown here. Hover previews the region without changing the chart.</div>
+      <canvas id="chart" height="230"></canvas>
+      <div id="missingNote" class="no-data-note"></div>
+      <div id="refLegend"></div>
+      <div id="refCaption">Reference ticks: simple (unweighted) mean across sibling NUTS3 regions
+        at each level, not population-weighted. First row is the domain indicator; the rows below
+        it, each prefixed "↳", are the sub-indicators it's built from.</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  // All data files live under this same published folder (docs/), which is
+  // a hard requirement, not a style choice: GitHub Pages only serves files
+  // inside the folder it's configured to publish from (see README).
+  const GEOJSON_URL = "data/processed/synthetic_regions.geojson";
+  const CSV_URL = "data/processed/synthetic_indicators.csv";
+  const NAMES_URL = "data/processed/nuts_names.json";
+  const HIERARCHY_URL = "data/processed/domain_hierarchy.json";
+
+  // Reference levels drawn as vertical ticks crossing each horizontal bar.
+  // Colors are the dataviz skill's validated categorical slots 1-4 (blue,
+  // orange, aqua, yellow) — passes the CVD/normal-vision checks as an
+  // ordered set; kept in this fixed order (never cycled).
+  // `prefixLen` is how many characters of the NUTS3 code identify that
+  // level's parent (NUTS3 codes nest by prefix: "ES511" -> country "ES"
+  // (2) -> NUTS1 "ES5" (3) -> NUTS2 "ES51" (4)); "eu" has no parent, one
+  // group for everything.
+  const REFERENCE_LEVELS = [
+    { key: "eu",    label: "EU average",      color: "#2a78d6", prefixLen: 0, defaultOn: true },
+    { key: "nuts0", label: "Country average", color: "#eb6834", prefixLen: 2, defaultOn: true },
+    { key: "nuts1", label: "NUTS1 average",   color: "#1baf7a", prefixLen: 3, defaultOn: false },
+    { key: "nuts2", label: "NUTS2 average",   color: "#eda100", prefixLen: 4, defaultOn: false },
+  ];
+  const activeLevels = new Set(REFERENCE_LEVELS.filter((l) => l.defaultOn).map((l) => l.key));
+
+  // "DE" -> "DE — Deutschland"; falls back to the bare code if a code isn't
+  // in the names lookup (shouldn't happen — the lookup is built from the
+  // same GISCO file the geometries come from — but never show a blank).
+  function codeAndName(code) {
+    const name = regionNames[code];
+    return name ? `${code} — ${name}` : code;
+  }
+
+  // Unweighted mean per column, grouped by each reference level's parent
+  // code — computed purely from whatever indicatorData holds, synthetic
+  // today or real partner data later (same NUTS3-keyed schema either way).
+  // Simple mean of sibling NUTS3 regions, not population/GDP-weighted; see
+  // PROJECT_MEMORY.md for why that choice is still open. `columnKeys` is
+  // every domain + sub-indicator column — computed once up front, not
+  // per tab, since it doesn't depend on which tab is active.
+  function computeReferenceAverages(byNuts3, columnKeys) {
+    const rows = Object.values(byNuts3);
+    const result = {};
+    for (const level of REFERENCE_LEVELS) {
+      const groups = {};
+      for (const row of rows) {
+        const groupKey = level.prefixLen === 0 ? "EU" : row.nuts3.slice(0, level.prefixLen);
+        const sums = groups[groupKey] || (groups[groupKey] = {});
+        for (const key of columnKeys) {
+          if (row[key] === null) continue;
+          const acc = sums[key] || (sums[key] = { sum: 0, n: 0 });
+          acc.sum += row[key];
+          acc.n += 1;
+        }
+      }
+      const means = {};
+      for (const groupKey in groups) {
+        means[groupKey] = {};
+        for (const key of columnKeys) {
+          const acc = groups[groupKey][key];
+          means[groupKey][key] = acc ? acc.sum / acc.n : null;
+        }
+      }
+      result[level.key] = means;
+    }
+    return result;
+  }
+
+  // For a given region, one array of reference values per level, aligned
+  // 1:1 with `rows` (the bar chart's current rows — the active tab's domain
+  // + its sub-indicators).
+  function referenceValuesForRegion(nuts3, averages, rows) {
+    const out = {};
+    for (const level of REFERENCE_LEVELS) {
+      const groupKey = level.prefixLen === 0 ? "EU" : nuts3.slice(0, level.prefixLen);
+      const means = averages[level.key][groupKey];
+      out[level.key] = rows.map((r) => (means ? means[r.key] : null));
+    }
+    return out;
+  }
+
+  // Draws the active reference levels as short vertical ticks crossing each
+  // row's bar, at the x-position of that level's value — registered once,
+  // reads per-chart data off `chart.$referenceValues` / `chart.$activeLevels`.
+  const referenceTicksPlugin = {
+    id: "referenceTicks",
+    afterDatasetsDraw(chart) {
+      const refValues = chart.$referenceValues;
+      if (!refValues) return;
+      const meta = chart.getDatasetMeta(0);
+      const { ctx, scales } = chart;
+      meta.data.forEach((bar, rowIndex) => {
+        const halfHeight = (bar.height || 20) / 2 + 4;
+        for (const level of REFERENCE_LEVELS) {
+          if (!chart.$activeLevels.has(level.key)) continue;
+          const value = refValues[level.key][rowIndex];
+          if (value === null || value === undefined || Number.isNaN(value)) continue;
+          const x = scales.x.getPixelForValue(value);
+          ctx.save();
+          ctx.strokeStyle = level.color;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x, bar.y - halfHeight);
+          ctx.lineTo(x, bar.y + halfHeight);
+          ctx.stroke();
+          ctx.restore();
+        }
+      });
+    },
+  };
+  Chart.register(referenceTicksPlugin);
+
+  // --- tiny CSV parser (schema is fixed and known, so no library needed) ---
+  function parseCSV(text) {
+    // Split on \r?\n, not plain \n: pandas writes CRLF on Windows, and a
+    // trailing "\r" left on the last column would make an empty (missing)
+    // last-column cell parse as NaN instead of null (poisoning any mean
+    // computed over it) while non-empty values happened to still parse fine.
+    const [headerLine, ...lines] = text.trim().split(/\r?\n/);
+    const headers = headerLine.split(",");
+    const byNuts3 = {};
+    for (const line of lines) {
+      const cells = line.split(",");
+      const row = {};
+      headers.forEach((h, i) => {
+        const cell = cells[i] === "" ? null : cells[i];
+        // Every column except the two id columns is numeric — parse them
+        // all generically instead of naming each one, so new indicator/
+        // sub-indicator columns just work without touching this parser.
+        row[h] = (h === "nuts2" || h === "nuts3" || cell === null) ? cell : parseFloat(cell);
+      });
+      byNuts3[row.nuts3] = row;
+    }
+    return byNuts3;
+  }
+
+  // --- choropleth color scale: one hue PER TAB, light -> dark = worse -> better ---
+  // Each domain gets its own hue instead of every tab sharing one blue ramp,
+  // so the map's overall colour cast changes with the tab — the user
+  // reported that with one shared hue, switching tabs was invisible at a
+  // glance. Base hues are the dataviz skill's validated categorical slots
+  // 1-5 (references/palette.md) — the skill's own documented pattern for
+  // "when multiple sequential contexts appear, each takes the next
+  // categorical slot's hue". `domainRamp()` derives a light/dark pair from
+  // each base hue via HSL (same lightness endpoints for every domain, hue
+  // held constant), so every ramp is visually consistent in *how* it reads,
+  // only the hue differs.
+  const DOMAIN_PALETTE = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"];
+  const MISSING_COLOR = "#dddddd";
+
+  function hexToRgb(hex) {
+    return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  }
+
+  function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s;
+    const l = (max + min) / 2;
+    if (max === min) { h = s = 0; } else {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h /= 6;
+    }
+    return [h, s, l];
+  }
+
+  function hslToHex(h, s, l) {
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+    let r, g, b;
+    if (s === 0) { r = g = b = l; } else {
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1 / 3);
+      g = hue2rgb(p, q, h);
+      b = hue2rgb(p, q, h - 1 / 3);
+    }
+    const toHex = (v) => Math.round(v * 255).toString(16).padStart(2, "0");
+    return "#" + toHex(r) + toHex(g) + toHex(b);
+  }
+
+  // Same lightness endpoints for every domain (0.93 near-white, 0.28 dark)
+  // so ramps only differ by hue, never by contrast/range.
+  function domainRamp(baseHex) {
+    const [h, s] = rgbToHsl(...hexToRgb(baseHex));
+    return {
+      light: hslToHex(h, Math.max(s * 0.55, 0.25), 0.93),
+      dark: hslToHex(h, Math.min(s * 1.15, 1), 0.28),
+    };
+  }
+
+  // `orientedValue` folds a raw value + its own direction into one "higher =
+  // better" 0-100 scale so every tab reads the same way (dark = always
+  // better), regardless of whether the underlying indicator is
+  // high_is_good or low_is_good.
+  function orientedValue(value, direction) {
+    if (value === null || value === undefined) return null;
+    return direction === "high_is_good" ? value : 100 - value;
+  }
+
+  // Blends a hex color toward white by `amount` (0 = unchanged, 1 = white) —
+  // used to get a lighter tint of the active domain's own color for the
+  // sub-indicator bars, so the bar chart's colors match the tab/choropleth
+  // instead of being a fixed navy regardless of which tab is active.
+  function tint(hex, amount) {
+    const rgb = hexToRgb(hex).map((c) => Math.round(c + (255 - c) * amount));
+    return "#" + rgb.map((v) => v.toString(16).padStart(2, "0")).join("");
+  }
+
+  function valueToColor(oriented, ramp) {
+    if (oriented === null || oriented === undefined || Number.isNaN(oriented)) return MISSING_COLOR;
+    const t = Math.max(0, Math.min(1, oriented / 100));
+    const lightRgb = hexToRgb(ramp.light);
+    const darkRgb = hexToRgb(ramp.dark);
+    const rgb = lightRgb.map((c, i) => Math.round(c + (darkRgb[i] - c) * t));
+    return "#" + rgb.map((v) => v.toString(16).padStart(2, "0")).join("");
+  }
+
+  // Real basemap instead of a flat grey background — gives coastlines/
+  // countries/labels for context, and makes similarly-toned choropleth
+  // fills easier to read against a textured backdrop than a flat
+  // industrial grey. CARTO's free raster tiles now require an API key
+  // (confirmed by testing — every tile came back watermarked "API KEY
+  // REQUIRED"), so these are all still-free/keyless providers, each
+  // confirmed with a direct request (200 + real image bytes, not an error
+  // placeholder) before adding it here. Four options, like the
+  // R/Shiny `leaflet::addLayersControl(baseGroups=...)` switcher the user
+  // had built before — this is the same underlying Leaflet.js mechanism
+  // (`L.control.layers`), just written directly in JS.
+  const BASEMAPS = {
+    "Standard": {
+      url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      options: { subdomains: "abc", maxZoom: 19 },
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    },
+    "Light": {
+      url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+      options: { maxZoom: 16 },
+      attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
+    },
+    "Satellite": {
+      url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      options: { maxZoom: 19 },
+      attribution: "Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS community",
+    },
+    "Terrain": {
+      url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+      options: { subdomains: "abc", maxZoom: 17 },
+      attribution:
+        'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, ' +
+        '<a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; ' +
+        '<a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)',
+    },
+  };
+  const DEFAULT_BASEMAP = "Light";
+
+  function makeBasemapLayer(name) {
+    const b = BASEMAPS[name];
+    return L.tileLayer(b.url, { ...b.options, attribution: b.attribution });
+  }
+
+  // Single basemap, no switcher — used for the small static outermost-region
+  // insets, where a layer-switcher control would be awkward at that size.
+  function addBasemap(targetMap) {
+    makeBasemapLayer(DEFAULT_BASEMAP).addTo(targetMap);
+  }
+
+  // Full switcher for the main map: one tile layer per option, radio-button
+  // control stacked under the zoom control (same corner, Leaflet's default
+  // stacking) — click a name to swap the base layer; Leaflet swaps the
+  // attribution text to match automatically.
+  function addBasemapSwitcher(targetMap) {
+    const layers = {};
+    for (const name of Object.keys(BASEMAPS)) layers[name] = makeBasemapLayer(name);
+    layers[DEFAULT_BASEMAP].addTo(targetMap);
+    L.control.layers(layers, null, { position: "topleft", collapsed: true }).addTo(targetMap);
+  }
+
+  let map, geoLayer, selectedLayer;
+  const insetMaps = [];
+  const STROKE_DEFAULT = { color: "#555555", weight: 1, fillOpacity: 0.85 };
+  const STROKE_HOVER = { color: "#1F3864", weight: 2, fillOpacity: 1 };
+  const STROKE_SELECTED = { color: "#C00000", weight: 3, fillOpacity: 1 };
+
+  // Fill color is per-feature (choropleth, depends on the active tab), so
+  // it's set once at creation time and preserved across hover/select style
+  // changes below — Leaflet's setStyle() merges options rather than
+  // replacing them, so a partial style (stroke-only) never clears fillColor.
+  function choroplethStyle(feature) {
+    const row = indicatorData[feature.properties.nuts3];
+    const domain = domainsByKey[activeDomainKey];
+    const raw = row ? row[activeDomainKey] : null;
+    return { ...STROKE_DEFAULT, fillColor: valueToColor(orientedValue(raw, domain.direction), domain.ramp) };
+  }
+
+  // Shared click/hover wiring for every region polygon, whether it's on the
+  // main map or one of the outermost-region inset mini-maps — one linked
+  // chart panel, so the interaction must behave identically everywhere.
+  function wireFeatureInteractions(feature, layer) {
+    layer.on({
+      mouseover: () => { if (layer !== selectedLayer) layer.setStyle(STROKE_HOVER); },
+      mouseout: () => { if (layer !== selectedLayer) layer.setStyle(STROKE_DEFAULT); },
+      click: () => selectRegion(feature, layer),
+    });
+  }
+
+  // A small, static (no pan/zoom/drag) Leaflet map showing just the given
+  // features, framed to their own bounds — one inset box.
+  function buildInsetMap(elId, features) {
+    const miniMap = L.map(elId, {
+      attributionControl: false, zoomControl: false, dragging: false,
+      scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false,
+      touchZoom: false, keyboard: false, tap: false,
+    });
+    addBasemap(miniMap); // attribution already shown once, on the main map's control
+    const layer = L.geoJSON({ type: "FeatureCollection", features }, {
+      style: choroplethStyle,
+      onEachFeature: wireFeatureInteractions,
+    }).addTo(miniMap);
+    miniMap.fitBounds(layer.getBounds(), { padding: [4, 4] });
+    insetMaps.push({ map: miniMap, layer });
+    return miniMap;
+  }
+
+  // Restyle every polygon (main map + all insets) for the currently active
+  // tab's domain, re-applying the selection highlight afterwards since a
+  // full restyle would otherwise reset it to the default stroke.
+  function repaintChoropleth() {
+    geoLayer.eachLayer((layer) => layer.setStyle(choroplethStyle(layer.feature)));
+    for (const { layer } of insetMaps) {
+      layer.eachLayer((l) => l.setStyle(choroplethStyle(l.feature)));
+    }
+    if (selectedLayer) selectedLayer.setStyle(STROKE_SELECTED);
+  }
+
+  function updateChoroplethLegend() {
+    const domain = domainsByKey[activeDomainKey];
+    const title = document.getElementById("choroplethLegendTitle");
+    title.textContent = domain.shortLabel;
+    title.style.color = domain.color;
+    document.getElementById("choroplethGradientBar").style.background =
+      `linear-gradient(to right, ${valueToColor(0, domain.ramp)}, ${valueToColor(100, domain.ramp)})`;
+  }
+
+  // EU outermost regions (Art. 349 TFEU "RUP"/OMR) — thousands of km from
+  // the mainland, so including them in the main map's fitBounds would blow
+  // its zoom out to fit the whole Atlantic/Caribbean/Indian Ocean instead of
+  // Europe. Pulled out into their own small framed inset maps instead, the
+  // way Eurostat's own reference maps do it. NUTS3 codes verified against
+  // data/NUTS_RG_20M_2024_4326.gpkg.
+  const OUTERMOST_GROUPS = [
+    { key: "canarias",   elId: "ob_canarias",   codes: ["ES703", "ES704", "ES705", "ES706", "ES707", "ES708", "ES709"] },
+    { key: "acores",     elId: "ob_acores",     codes: ["PT200"] },
+    { key: "madeira",    elId: "ob_madeira",    codes: ["PT300"] },
+    { key: "guyane",     elId: "ob_guyane",     codes: ["FRY30"] },
+    { key: "guadeloupe", elId: "ob_guadeloupe", codes: ["FRY10"] },
+    { key: "reunion",    elId: "ob_reunion",    codes: ["FRY40"] },
+    { key: "martinique", elId: "ob_martinique", codes: ["FRY20"] },
+    { key: "mayotte",    elId: "ob_mayotte",    codes: ["FRY50"] },
+  ];
+  const OUTERMOST_CODES = new Set(OUTERMOST_GROUPS.flatMap((g) => g.codes));
+
+  let currentRow = null;
+
+  // Rows for the bar chart: the active tab's domain indicator first, then
+  // its sub-indicators, each individually toggleable against the same
+  // reference lines. `label` carries the "↳" drill-down marker — only for
+  // the chart's own y-axis, where it reads as hierarchy at a glance;
+  // `plainLabel` (no marker) is for anywhere the name is used inside a
+  // sentence (e.g. the "No data for this region: …" note), where a stray
+  // "↳" would just look like a rendering glitch, not a hierarchy cue.
+  function activeRows() {
+    const domain = domainsByKey[activeDomainKey];
+    return [
+      { key: activeDomainKey, label: domain.shortLabel, plainLabel: domain.shortLabel, isDomain: true },
+      ...domain.subs.map((s) => ({ key: s.key, label: "↳ " + s.label, plainLabel: s.label, isDomain: false })),
+    ];
+  }
+
+  // Splits a label into an array of lines no wider than `maxChars`, breaking
+  // on spaces — Chart.js renders an array tick label as multiple lines
+  // natively, so this is all that's needed to stop long sub-indicator
+  // labels overflowing the left edge of the chart.
+  function wrapLabel(text, maxChars) {
+    const words = text.split(" ");
+    const lines = [];
+    let line = "";
+    for (const word of words) {
+      const candidate = line ? line + " " + word : word;
+      if (candidate.length > maxChars && line) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = candidate;
+      }
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  function buildChart(row) {
+    currentRow = row;
+    const rows = activeRows();
+    const labels = rows.map((r) => r.label);
+    const values = rows.map((r) => (row[r.key] === null ? 0 : row[r.key]));
+    const missing = rows.filter((r) => row[r.key] === null).map((r) => r.plainLabel);
+    const refValues = referenceValuesForRegion(row.nuts3, referenceAverages, rows);
+
+    if (chart) chart.destroy();
+    chart = new Chart(document.getElementById("chart"), {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [{
+          label: row.nuts3,
+          data: values,
+          backgroundColor: rows.map((r) => {
+            if (row[r.key] === null) return "#ddd";
+            const domain = domainsByKey[activeDomainKey];
+            return r.isDomain ? domain.color : tint(domain.color, 0.45);
+          }),
+        }],
+      },
+      options: {
+        indexAxis: "y",
+        scales: {
+          x: { min: 0, max: 100 },
+          // Sub-indicator labels can be long ("↳ Access to healthcare/
+          // education/transport") — without wrapping, Chart.js right-aligns
+          // the tick label against the axis and lets the start of the text
+          // run off the left edge of the canvas instead of wrapping it.
+          y: { ticks: { callback: (_value, i) => wrapLabel(labels[i], 26) } },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              afterBody(items) {
+                const rowIndex = items[0].dataIndex;
+                const lines = [];
+                for (const level of REFERENCE_LEVELS) {
+                  if (!activeLevels.has(level.key)) continue;
+                  const v = refValues[level.key][rowIndex];
+                  lines.push(`${level.label}: ${v === null ? "no data" : v.toFixed(1)}`);
+                }
+                return lines;
+              },
+            },
+          },
+        },
+      },
+    });
+    chart.$referenceValues = refValues;
+    chart.$activeLevels = activeLevels;
+
+    for (const level of REFERENCE_LEVELS) {
+      if (level.prefixLen === 0) continue;
+      const groupKey = row.nuts3.slice(0, level.prefixLen);
+      const detail = document.getElementById("refDetail_" + level.key);
+      if (detail) detail.textContent = " (" + codeAndName(groupKey) + ")";
+    }
+
+    document.getElementById("missingNote").textContent = missing.length
+      ? `No data for this region: ${missing.join(", ")} (shown as grey / zero, not a real zero value).`
+      : "";
+  }
+
+  function buildRefLegend() {
+    const container = document.getElementById("refLegend");
+    container.innerHTML = "";
+    for (const level of REFERENCE_LEVELS) {
+      const id = "refToggle_" + level.key;
+      const label = document.createElement("label");
+      label.htmlFor = id;
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.id = id;
+      checkbox.checked = activeLevels.has(level.key);
+      checkbox.addEventListener("change", () => {
+        if (checkbox.checked) activeLevels.add(level.key);
+        else activeLevels.delete(level.key);
+        if (currentRow) buildChart(currentRow);
+      });
+      const swatch = document.createElement("span");
+      swatch.className = "swatch";
+      swatch.style.background = level.color;
+      label.appendChild(checkbox);
+      label.appendChild(swatch);
+      label.appendChild(document.createTextNode(level.label));
+      // EU has no parent code to show; country/NUTS1/NUTS2 get a detail
+      // span filled in per-selection by buildChart (e.g. "(DE — Deutschland)").
+      if (level.prefixLen > 0) {
+        const detail = document.createElement("span");
+        detail.id = "refDetail_" + level.key;
+        detail.style.color = "#898781";
+        label.appendChild(detail);
+      }
+      container.appendChild(label);
+    }
+  }
+
+  let activeDomainKey = null;
+  let domainsByKey = {};
+  let domainOrder = [];
+
+  function buildDomainTabs() {
+    const container = document.getElementById("domainTabs");
+    container.innerHTML = "";
+    for (const key of domainOrder) {
+      const domain = domainsByKey[key];
+      const btn = document.createElement("button");
+      btn.textContent = domain.shortLabel;
+      btn.id = "tab_" + key;
+      btn.style.setProperty("--tab-color", domain.color);
+      btn.addEventListener("click", () => selectDomain(key));
+      container.appendChild(btn);
+    }
+  }
+
+  function selectDomain(key) {
+    activeDomainKey = key;
+    for (const k of domainOrder) {
+      document.getElementById("tab_" + k).classList.toggle("active", k === key);
+    }
+    const domain = domainsByKey[key];
+    const heading = document.getElementById("domainHeading");
+    heading.textContent = domain.shortLabel;
+    heading.style.color = domain.color;
+    document.getElementById("domainDesc").textContent = domain.label;
+    updateChoroplethLegend();
+    if (geoLayer) repaintChoropleth();
+    if (currentRow) buildChart(currentRow);
+  }
+
+  function selectRegion(feature, layer) {
+    if (selectedLayer) selectedLayer.setStyle(STROKE_DEFAULT);
+    selectedLayer = layer;
+    layer.setStyle(STROKE_SELECTED);
+    document.getElementById("regionTitle").textContent =
+      "Region: " + codeAndName(feature.properties.nuts3);
+    document.getElementById("regionHint").textContent =
+      "Showing indicator breakdown below. Click another region to compare, or switch tabs to see a different indicator for the same region.";
+    buildChart(indicatorData[feature.properties.nuts3]);
+  }
+
+  let indicatorData = {};
+  let referenceAverages = {};
+  let regionNames = {};
+  let chart;
+
+  Promise.all([
+    fetch(GEOJSON_URL).then((r) => r.json()),
+    fetch(CSV_URL).then((r) => r.text()),
+    fetch(NAMES_URL).then((r) => r.json()),
+    fetch(HIERARCHY_URL).then((r) => r.json()),
+  ]).then(([geojson, csvText, names, hierarchy]) => {
+    indicatorData = parseCSV(csvText);
+    regionNames = names;
+
+    domainOrder = Object.keys(hierarchy);
+    domainsByKey = {};
+    domainOrder.forEach((key, i) => {
+      const h = hierarchy[key];
+      const color = DOMAIN_PALETTE[i % DOMAIN_PALETTE.length];
+      domainsByKey[key] = {
+        key,
+        direction: h.direction,
+        shortLabel: h.short_label,
+        label: h.label,
+        color,
+        ramp: domainRamp(color),
+        subs: Object.keys(h.subs).map((subKey) => ({
+          key: subKey,
+          direction: h.subs[subKey].direction,
+          label: h.subs[subKey].label,
+        })),
+      };
+    });
+    const allColumnKeys = domainOrder.flatMap((k) => [k, ...domainsByKey[k].subs.map((s) => s.key)]);
+    referenceAverages = computeReferenceAverages(indicatorData, allColumnKeys);
+
+    buildDomainTabs();
+    buildRefLegend();
+    selectDomain(domainOrder[0]);
+
+    const mainFeatures = geojson.features.filter((f) => !OUTERMOST_CODES.has(f.properties.nuts3));
+
+    map = L.map("map");
+    addBasemapSwitcher(map);
+    geoLayer = L.geoJSON({ type: "FeatureCollection", features: mainFeatures }, {
+      style: choroplethStyle,
+      onEachFeature: wireFeatureInteractions,
+    }).addTo(map);
+    map.fitBounds(geoLayer.getBounds());
+
+    for (const group of OUTERMOST_GROUPS) {
+      const features = geojson.features.filter((f) => group.codes.includes(f.properties.nuts3));
+      if (features.length) buildInsetMap(group.elId, features);
+    }
+  }).catch((err) => {
+    // The map div would otherwise stay blank with no explanation — this is
+    // most likely someone double-clicking index.html (file://), where
+    // fetch() is blocked by the browser and silently returns nothing to
+    // look at. Put the fix directly where the empty map is, not just in
+    // the small side-panel hint text that's easy to miss.
+    const isFileProtocol = location.protocol === "file:";
+    document.getElementById("map").innerHTML =
+      `<div style="max-width:520px;margin:40px auto;padding:20px 24px;background:#fff3f3;` +
+      `border:1px solid #e0b4b4;border-radius:6px;font-size:14px;line-height:1.5;color:#5a1a1a;">` +
+      `<strong>Could not load the map data.</strong><br><br>` +
+      (isFileProtocol
+        ? `You opened this file directly (<code>file://…</code>) — browsers block ` +
+          `<code>fetch()</code> requests from local files, so the data can never load this way.`
+        : `The data files could not be fetched (see the browser console for details).`) +
+      `<br><br>Instead, serve this folder over HTTP and open that URL, e.g.:<br>` +
+      `<code>python -m http.server 8000 --directory docs</code><br>` +
+      `then open <code>http://localhost:8000/index.html</code>.` +
+      `<br><br>If the server is already running, make sure ` +
+      `<code>pipeline/generate_synthetic_data.py</code> has been run at least once ` +
+      `(it creates the files under <code>docs/data/processed/</code>).` +
+      `</div>`;
+    document.getElementById("regionHint").textContent =
+      "Could not load data files — see the message on the map for how to fix this.";
+    console.error(err);
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# R
+.Rhistory
+.RData
+.Rproj.user/
+renv/library/
+renv/python/
+renv/staging/
+
+# docs/data/processed/* is NOT ignored: GitHub Pages serves docs/ with no
+# build step, so these generated files ARE the deployed artifact, not a
+# local cache — they must be committed or the live site 404s on them.
+data/raw/*
+!data/raw/.gitkeep
+
+# Non-public project/admin material — never publish this repo's contents
+# publicly if it contains partner budgets, personal emails/ORCID, etc.
+# (see .claude/PROJECT_MEMORY.md, 2026-09-16, for why this lives outside
+# docs/ in the first place).
+materials/
+
+# Claude Code's own internal project memory/config (protocol, memory log,
+# skill suite reference docs, local permission settings) — working notes
+# for future sessions, not part of the published app; stays local only.
+.claude/
+
+# OS / editor
+.DS_Store
+.vscode/*
+!.vscode/extensions.json

@@ -1,0 +1,14 @@
+{
+  "_comment": "One example metadata record per indicator, following Dublin Core / ISO 19115. Duplicate this block per indicator once the Phase 1 catalogue is agreed with POLIMI/PLUS.",
+  "identifier": "democratic_trust",
+  "title": "Democratic trust index",
+  "description": "Composite index of institutional trust, derived from ESS and Eurobarometer.",
+  "source": ["European Social Survey", "Eurobarometer"],
+  "spatial_resolution": "NUTS2",
+  "temporal_coverage": "2010-2024",
+  "direction": "high_is_good",
+  "license": "CC BY 4.0",
+  "contact": "UB — Task 4.1",
+  "last_updated": null,
+  "is_disaggregated_from_parent": false
+}

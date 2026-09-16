@@ -1,0 +1,97 @@
+{
+  "objective_inequality_index": {
+    "direction": "low_is_good",
+    "short_label": "Objective inequality",
+    "label": "Disparities in access to services, income & inequality",
+    "subs": {
+      "income_gap": {
+        "direction": "low_is_good",
+        "label": "Income inequality (Gini-style gap)"
+      },
+      "access_to_services": {
+        "direction": "high_is_good",
+        "label": "Access to healthcare/education/transport"
+      },
+      "poverty_risk_rate": {
+        "direction": "low_is_good",
+        "label": "Share of population at risk of poverty"
+      }
+    }
+  },
+  "perceived_injustice": {
+    "direction": "low_is_good",
+    "short_label": "Perceived injustice",
+    "label": "Perceived economic injustice & well-being",
+    "subs": {
+      "perceived_unfairness": {
+        "direction": "low_is_good",
+        "label": "Share reporting unfair treatment (ESS-style)"
+      },
+      "life_satisfaction": {
+        "direction": "high_is_good",
+        "label": "Self-reported life satisfaction"
+      },
+      "economic_optimism": {
+        "direction": "high_is_good",
+        "label": "Optimism about future economic conditions"
+      }
+    }
+  },
+  "civic_participation": {
+    "direction": "high_is_good",
+    "short_label": "Civic participation",
+    "label": "Voting behaviour & civic participation",
+    "subs": {
+      "voter_turnout": {
+        "direction": "high_is_good",
+        "label": "Voter turnout in the most recent elections"
+      },
+      "protest_activity": {
+        "direction": "high_is_good",
+        "label": "Participation in protests/demonstrations"
+      },
+      "associational_membership": {
+        "direction": "high_is_good",
+        "label": "Membership in civic/associational orgs"
+      }
+    }
+  },
+  "democratic_trust": {
+    "direction": "high_is_good",
+    "short_label": "Democratic trust",
+    "label": "Trust & democratic resilience",
+    "subs": {
+      "institutional_trust": {
+        "direction": "high_is_good",
+        "label": "Trust in national/local institutions"
+      },
+      "political_efficacy": {
+        "direction": "high_is_good",
+        "label": "Sense that one's political voice matters"
+      },
+      "corruption_perception": {
+        "direction": "low_is_good",
+        "label": "Perceived level of corruption"
+      }
+    }
+  },
+  "media_access_index": {
+    "direction": "high_is_good",
+    "short_label": "Media access",
+    "label": "News deserts / media access",
+    "subs": {
+      "local_media_presence": {
+        "direction": "high_is_good",
+        "label": "Presence of local news outlets"
+      },
+      "digital_literacy": {
+        "direction": "high_is_good",
+        "label": "Digital literacy / media literacy"
+      },
+      "internet_coverage": {
+        "direction": "high_is_good",
+        "label": "Broadband/internet coverage"
+      }
+    }
+  }
+}
