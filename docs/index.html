@@ -31,8 +31,8 @@
   #banner { position: absolute; z-index: 1000; top: 10px; left: 50px; right: 250px; background: white;
             padding: 6px 12px; border-radius: 4px; font-size: 13px; box-shadow: 0 1px 4px rgba(0,0,0,.3);
             box-sizing: border-box; }
-  h2 { margin: 0 0 6px; font-size: 15px; color: #1F3864; }
-  #domainHeading { font-size: 15px; font-weight: bold; color: #1F3864; margin-bottom: 2px; }
+  h2 { margin: 0 0 6px; font-size: 15px; color: #312E81; }
+  #domainHeading { font-size: 15px; font-weight: bold; color: #312E81; margin-bottom: 2px; }
   #domainDesc { font-size: 12px; color: #898781; margin-bottom: 8px; }
   #regionTitle { font-size: 18px; font-weight: bold; margin-bottom: 3px; }
   #regionHint { color: #777; font-size: 12px; margin-bottom: 10px; }
@@ -71,7 +71,7 @@
   .outermostRow { display: flex; gap: 4px; }
   .outermostBox { background: white; border: 1px solid #999; box-shadow: 0 1px 4px rgba(0,0,0,.2);
                    display: flex; flex-direction: column; flex: 1; min-width: 0; }
-  .outermostBox .obLabel { font-size: 10px; font-weight: bold; color: #1F3864;
+  .outermostBox .obLabel { font-size: 10px; font-weight: bold; color: #312E81;
                             padding: 2px 5px; border-bottom: 1px solid #eee; white-space: nowrap;
                             overflow: hidden; text-overflow: ellipsis; }
   .outermostBox .obMap { height: 62px; }
@@ -137,18 +137,21 @@
   const HIERARCHY_URL = "data/processed/domain_hierarchy.json";
 
   // Reference levels drawn as vertical ticks crossing each horizontal bar.
-  // Colors are the dataviz skill's validated categorical slots 1-4 (blue,
-  // orange, aqua, yellow) — passes the CVD/normal-vision checks as an
-  // ordered set; kept in this fixed order (never cycled).
+  // Colors are the first 4 slots of DOMAIN_PALETTE below (indigo, amber,
+  // teal, rose) — re-validated 2026-09-16 for a more contemporary look
+  // (dataviz skill's validate_palette.js, adjacent pairs: worst CVD ΔE 13.9,
+  // worst normal-vision ΔE 24.9, both well clear of the floors). Kept in
+  // this fixed order (never cycled), same hues as the domain tabs so a
+  // colour means the same thing everywhere in the app.
   // `prefixLen` is how many characters of the NUTS3 code identify that
   // level's parent (NUTS3 codes nest by prefix: "ES511" -> country "ES"
   // (2) -> NUTS1 "ES5" (3) -> NUTS2 "ES51" (4)); "eu" has no parent, one
   // group for everything.
   const REFERENCE_LEVELS = [
-    { key: "eu",    label: "EU average",      color: "#2a78d6", prefixLen: 0, defaultOn: true },
-    { key: "nuts0", label: "Country average", color: "#eb6834", prefixLen: 2, defaultOn: true },
-    { key: "nuts1", label: "NUTS1 average",   color: "#1baf7a", prefixLen: 3, defaultOn: false },
-    { key: "nuts2", label: "NUTS2 average",   color: "#eda100", prefixLen: 4, defaultOn: false },
+    { key: "eu",    label: "EU average",      color: "#4F46E5", prefixLen: 0, defaultOn: true },
+    { key: "nuts0", label: "Country average", color: "#F59E0B", prefixLen: 2, defaultOn: true },
+    { key: "nuts1", label: "NUTS1 average",   color: "#14B8A6", prefixLen: 3, defaultOn: false },
+    { key: "nuts2", label: "NUTS2 average",   color: "#E11D48", prefixLen: 4, defaultOn: false },
   ];
   const activeLevels = new Set(REFERENCE_LEVELS.filter((l) => l.defaultOn).map((l) => l.key));
 
@@ -263,18 +266,22 @@
     return byNuts3;
   }
 
-  // --- choropleth color scale: one hue PER TAB, light -> dark = worse -> better ---
+  // --- choropleth color scale: one hue PER TAB, light -> dark = low -> high raw value ---
   // Each domain gets its own hue instead of every tab sharing one blue ramp,
   // so the map's overall colour cast changes with the tab — the user
   // reported that with one shared hue, switching tabs was invisible at a
-  // glance. Base hues are the dataviz skill's validated categorical slots
-  // 1-5 (references/palette.md) — the skill's own documented pattern for
-  // "when multiple sequential contexts appear, each takes the next
-  // categorical slot's hue". `domainRamp()` derives a light/dark pair from
-  // each base hue via HSL (same lightness endpoints for every domain, hue
-  // held constant), so every ramp is visually consistent in *how* it reads,
-  // only the hue differs.
-  const DOMAIN_PALETTE = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"];
+  // glance. Base hues below are a custom set (indigo/amber/teal/rose/
+  // purple, chosen 2026-09-16 for a more contemporary look than the
+  // original primary-ish blue/orange/aqua/yellow/magenta) — re-validated
+  // with the dataviz skill's validate_palette.js, adjacent pairs: worst
+  // CVD ΔE 13.9, worst normal-vision ΔE 24.9, both clear of the floors.
+  // Follows the skill's documented pattern for "when multiple sequential
+  // contexts appear, each takes the next categorical slot's hue".
+  // `domainRamp()` derives a light/dark pair from each base hue via HSL
+  // (same lightness endpoints for every domain, hue held constant), so
+  // every ramp is visually consistent in *how* it reads, only the hue
+  // differs.
+  const DOMAIN_PALETTE = ["#4F46E5", "#F59E0B", "#14B8A6", "#E11D48", "#A855F7"];
   const MISSING_COLOR = "#dddddd";
 
   function hexToRgb(hex) {
@@ -409,8 +416,12 @@
   let map, geoLayer, selectedLayer;
   const insetMaps = [];
   const STROKE_DEFAULT = { color: "#555555", weight: 1, fillOpacity: 0.85 };
-  const STROKE_HOVER = { color: "#1F3864", weight: 2, fillOpacity: 1 };
-  const STROKE_SELECTED = { color: "#C00000", weight: 3, fillOpacity: 1 };
+  const STROKE_HOVER = { color: "#312E81", weight: 2, fillOpacity: 1 };
+  // Status colour (selection), not a domain colour — deliberately outside
+  // DOMAIN_PALETTE (dataviz skill: status tokens are reserved, never reused
+  // as "series N"); the skill's own "critical" status step, contemporary
+  // replacement for the earlier plain #C00000.
+  const STROKE_SELECTED = { color: "#D03B3B", weight: 3, fillOpacity: 1 };
 
   // Fill color is per-feature (choropleth, depends on the active tab), so
   // it's set once at creation time and preserved across hover/select style
