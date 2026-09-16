@@ -1,96 +1,346 @@
 {
   "objective_inequality_index": {
     "direction": "low_is_good",
-    "short_label": "Objective inequality",
-    "label": "Disparities in access to services, income & inequality",
+    "short_label": {
+      "en": "Objective inequality",
+      "fr": "Inégalité objective",
+      "de": "Objektive Ungleichheit",
+      "ro": "Inegalitate obiectivă",
+      "nl": "Objectieve ongelijkheid",
+      "el": "Αντικειμενική ανισότητα",
+      "sk": "Objektívna nerovnosť",
+      "ca": "Desigualtat objectiva",
+      "es": "Desigualdad objetiva"
+    },
+    "label": {
+      "en": "Disparities in access to services, income & inequality",
+      "fr": "Disparités d'accès aux services, de revenu et d'inégalité",
+      "de": "Unterschiede beim Zugang zu Dienstleistungen, Einkommen und Ungleichheit",
+      "ro": "Disparități în accesul la servicii, venit și inegalitate",
+      "nl": "Verschillen in toegang tot diensten, inkomen en ongelijkheid",
+      "el": "Ανισότητες στην πρόσβαση σε υπηρεσίες, εισόδημα και ανισότητα",
+      "sk": "Rozdiely v prístupe k službám, príjme a nerovnosti",
+      "ca": "Disparitats en l'accés a serveis, renda i desigualtat",
+      "es": "Disparidades en el acceso a servicios, renta y desigualdad"
+    },
     "subs": {
       "income_gap": {
         "direction": "low_is_good",
-        "label": "Income inequality (Gini-style gap)"
+        "label": {
+          "en": "Income inequality (Gini-style gap)",
+          "fr": "Inégalité de revenu (écart de type Gini)",
+          "de": "Einkommensungleichheit (Gini-ähnliche Lücke)",
+          "ro": "Inegalitate a veniturilor (decalaj de tip Gini)",
+          "nl": "Inkomensongelijkheid (Gini-achtige kloof)",
+          "el": "Εισοδηματική ανισότητα (χάσμα τύπου Gini)",
+          "sk": "Príjmová nerovnosť (rozdiel typu Gini)",
+          "ca": "Desigualtat de renda (bretxa tipus Gini)",
+          "es": "Desigualdad de renta (brecha tipo Gini)"
+        }
       },
       "access_to_services": {
         "direction": "high_is_good",
-        "label": "Access to healthcare/education/transport"
+        "label": {
+          "en": "Access to healthcare/education/transport",
+          "fr": "Accès à la santé, à l'éducation et aux transports",
+          "de": "Zugang zu Gesundheitsversorgung, Bildung und Verkehr",
+          "ro": "Acces la sănătate, educație și transport",
+          "nl": "Toegang tot zorg, onderwijs en vervoer",
+          "el": "Πρόσβαση σε υγεία, εκπαίδευση και μεταφορές",
+          "sk": "Prístup k zdravotnej starostlivosti/vzdelávaniu/doprave",
+          "ca": "Accés a sanitat, educació i transport",
+          "es": "Acceso a sanidad, educación y transporte"
+        }
       },
       "poverty_risk_rate": {
         "direction": "low_is_good",
-        "label": "Share of population at risk of poverty"
+        "label": {
+          "en": "Share of population at risk of poverty",
+          "fr": "Part de la population exposée au risque de pauvreté",
+          "de": "Anteil der von Armut bedrohten Bevölkerung",
+          "ro": "Ponderea populației expuse riscului de sărăcie",
+          "nl": "Aandeel van de bevolking met risico op armoede",
+          "el": "Ποσοστό πληθυσμού σε κίνδυνο φτώχειας",
+          "sk": "Podiel obyvateľstva ohrozeného chudobou",
+          "ca": "Percentatge de població en risc de pobresa",
+          "es": "Porcentaje de población en riesgo de pobreza"
+        }
       }
     }
   },
   "perceived_injustice": {
     "direction": "low_is_good",
-    "short_label": "Perceived injustice",
-    "label": "Perceived economic injustice & well-being",
+    "short_label": {
+      "en": "Perceived injustice",
+      "fr": "Injustice perçue",
+      "de": "Wahrgenommene Ungerechtigkeit",
+      "ro": "Injustiție percepută",
+      "nl": "Ervaren onrechtvaardigheid",
+      "el": "Αντιλαμβανόμενη αδικία",
+      "sk": "Vnímaná nespravodlivosť",
+      "ca": "Injustícia percebuda",
+      "es": "Injusticia percibida"
+    },
+    "label": {
+      "en": "Perceived economic injustice & well-being",
+      "fr": "Injustice économique perçue et bien-être",
+      "de": "Wahrgenommene wirtschaftliche Ungerechtigkeit und Wohlbefinden",
+      "ro": "Injustiție economică percepută și bunăstare",
+      "nl": "Ervaren economische onrechtvaardigheid en welzijn",
+      "el": "Αντιλαμβανόμενη οικονομική αδικία και ευημερία",
+      "sk": "Vnímaná ekonomická nespravodlivosť a blahobyt",
+      "ca": "Injustícia econòmica percebuda i benestar",
+      "es": "Injusticia económica percibida y bienestar"
+    },
     "subs": {
       "perceived_unfairness": {
         "direction": "low_is_good",
-        "label": "Share reporting unfair treatment (ESS-style)"
+        "label": {
+          "en": "Share reporting unfair treatment (ESS-style)",
+          "fr": "Part déclarant un traitement injuste (type ESS)",
+          "de": "Anteil, der unfaire Behandlung angibt (ESS-Stil)",
+          "ro": "Ponderea celor care raportează un tratament nedrept (stil ESS)",
+          "nl": "Aandeel dat oneerlijke behandeling meldt (ESS-stijl)",
+          "el": "Ποσοστό που αναφέρει άδικη μεταχείριση (τύπου ESS)",
+          "sk": "Podiel osôb hlásiacich nespravodlivé zaobchádzanie (v štýle ESS)",
+          "ca": "Percentatge que declara un tracte injust (estil ESS)",
+          "es": "Porcentaje que declara un trato injusto (estilo ESS)"
+        }
       },
       "life_satisfaction": {
         "direction": "high_is_good",
-        "label": "Self-reported life satisfaction"
+        "label": {
+          "en": "Self-reported life satisfaction",
+          "fr": "Satisfaction de vie autodéclarée",
+          "de": "Selbstberichtete Lebenszufriedenheit",
+          "ro": "Satisfacția față de viață auto-raportată",
+          "nl": "Zelfgerapporteerde levenstevredenheid",
+          "el": "Αυτοαναφερόμενη ικανοποίηση από τη ζωή",
+          "sk": "Subjektívna spokojnosť so životom",
+          "ca": "Satisfacció vital autodeclarada",
+          "es": "Satisfacción vital autodeclarada"
+        }
       },
       "economic_optimism": {
         "direction": "high_is_good",
-        "label": "Optimism about future economic conditions"
+        "label": {
+          "en": "Optimism about future economic conditions",
+          "fr": "Optimisme quant aux conditions économiques futures",
+          "de": "Optimismus hinsichtlich zukünftiger wirtschaftlicher Bedingungen",
+          "ro": "Optimism privind condițiile economice viitoare",
+          "nl": "Optimisme over toekomstige economische omstandigheden",
+          "el": "Αισιοδοξία για τις μελλοντικές οικονομικές συνθήκες",
+          "sk": "Optimizmus ohľadom budúcich ekonomických podmienok",
+          "ca": "Optimisme sobre les condicions econòmiques futures",
+          "es": "Optimismo sobre las condiciones económicas futuras"
+        }
       }
     }
   },
   "civic_participation": {
     "direction": "high_is_good",
-    "short_label": "Civic participation",
-    "label": "Voting behaviour & civic participation",
+    "short_label": {
+      "en": "Civic participation",
+      "fr": "Participation civique",
+      "de": "Bürgerschaftliche Beteiligung",
+      "ro": "Participare civică",
+      "nl": "Maatschappelijke participatie",
+      "el": "Πολιτική συμμετοχή",
+      "sk": "Občianska participácia",
+      "ca": "Participació cívica",
+      "es": "Participación cívica"
+    },
+    "label": {
+      "en": "Voting behaviour & civic participation",
+      "fr": "Comportement électoral et participation civique",
+      "de": "Wahlverhalten und bürgerschaftliche Beteiligung",
+      "ro": "Comportament electoral și participare civică",
+      "nl": "Stemgedrag en maatschappelijke participatie",
+      "el": "Εκλογική συμπεριφορά και πολιτική συμμετοχή",
+      "sk": "Volebné správanie a občianska participácia",
+      "ca": "Comportament electoral i participació cívica",
+      "es": "Comportamiento electoral y participación cívica"
+    },
     "subs": {
       "voter_turnout": {
         "direction": "high_is_good",
-        "label": "Voter turnout in the most recent elections"
+        "label": {
+          "en": "Voter turnout in the most recent elections",
+          "fr": "Taux de participation aux dernières élections",
+          "de": "Wahlbeteiligung bei den letzten Wahlen",
+          "ro": "Prezența la vot la cele mai recente alegeri",
+          "nl": "Opkomst bij de meest recente verkiezingen",
+          "el": "Προσέλευση ψηφοφόρων στις πιο πρόσφατες εκλογές",
+          "sk": "Volebná účasť v posledných voľbách",
+          "ca": "Participació electoral en les eleccions més recents",
+          "es": "Participación electoral en las elecciones más recientes"
+        }
       },
       "protest_activity": {
         "direction": "high_is_good",
-        "label": "Participation in protests/demonstrations"
+        "label": {
+          "en": "Participation in protests/demonstrations",
+          "fr": "Participation à des manifestations/rassemblements",
+          "de": "Teilnahme an Protesten/Demonstrationen",
+          "ro": "Participare la proteste/manifestații",
+          "nl": "Deelname aan protesten/demonstraties",
+          "el": "Συμμετοχή σε διαμαρτυρίες/διαδηλώσεις",
+          "sk": "Účasť na protestoch/demonštráciách",
+          "ca": "Participació en protestes/manifestacions",
+          "es": "Participación en protestas/manifestaciones"
+        }
       },
       "associational_membership": {
         "direction": "high_is_good",
-        "label": "Membership in civic/associational orgs"
+        "label": {
+          "en": "Membership in civic/associational orgs",
+          "fr": "Adhésion à des organisations civiques/associatives",
+          "de": "Mitgliedschaft in zivilgesellschaftlichen Organisationen/Vereinen",
+          "ro": "Apartenența la organizații civice/asociative",
+          "nl": "Lidmaatschap van maatschappelijke organisaties/verenigingen",
+          "el": "Συμμετοχή σε πολιτικές/κοινωνικές οργανώσεις",
+          "sk": "Členstvo v občianskych/záujmových organizáciách",
+          "ca": "Pertinença a organitzacions cíviques/associatives",
+          "es": "Pertenencia a organizaciones cívicas/asociativas"
+        }
       }
     }
   },
   "democratic_trust": {
     "direction": "high_is_good",
-    "short_label": "Democratic trust",
-    "label": "Trust & democratic resilience",
+    "short_label": {
+      "en": "Democratic trust",
+      "fr": "Confiance démocratique",
+      "de": "Demokratisches Vertrauen",
+      "ro": "Încredere democratică",
+      "nl": "Democratisch vertrouwen",
+      "el": "Δημοκρατική εμπιστοσύνη",
+      "sk": "Demokratická dôvera",
+      "ca": "Confiança democràtica",
+      "es": "Confianza democrática"
+    },
+    "label": {
+      "en": "Trust & democratic resilience",
+      "fr": "Confiance et résilience démocratique",
+      "de": "Vertrauen und demokratische Resilienz",
+      "ro": "Încredere și reziliență democratică",
+      "nl": "Vertrouwen en democratische veerkracht",
+      "el": "Εμπιστοσύνη και δημοκρατική ανθεκτικότητα",
+      "sk": "Dôvera a demokratická odolnosť",
+      "ca": "Confiança i resiliència democràtica",
+      "es": "Confianza y resiliencia democrática"
+    },
     "subs": {
       "institutional_trust": {
         "direction": "high_is_good",
-        "label": "Trust in national/local institutions"
+        "label": {
+          "en": "Trust in national/local institutions",
+          "fr": "Confiance dans les institutions nationales/locales",
+          "de": "Vertrauen in nationale/lokale Institutionen",
+          "ro": "Încredere în instituțiile naționale/locale",
+          "nl": "Vertrouwen in nationale/lokale instellingen",
+          "el": "Εμπιστοσύνη στους εθνικούς/τοπικούς θεσμούς",
+          "sk": "Dôvera v národné/miestne inštitúcie",
+          "ca": "Confiança en les institucions nacionals/locals",
+          "es": "Confianza en las instituciones nacionales/locales"
+        }
       },
       "political_efficacy": {
         "direction": "high_is_good",
-        "label": "Sense that one's political voice matters"
+        "label": {
+          "en": "Sense that one's political voice matters",
+          "fr": "Sentiment que sa voix politique compte",
+          "de": "Gefühl, dass die eigene politische Stimme zählt",
+          "ro": "Percepția că vocea politică proprie contează",
+          "nl": "Gevoel dat de eigen politieke stem ertoe doet",
+          "el": "Αίσθηση ότι η πολιτική φωνή του ατόμου μετράει",
+          "sk": "Pocit, že vlastný politický hlas má význam",
+          "ca": "Sensació que la pròpia veu política compta",
+          "es": "Sensación de que la propia voz política cuenta"
+        }
       },
       "corruption_perception": {
         "direction": "low_is_good",
-        "label": "Perceived level of corruption"
+        "label": {
+          "en": "Perceived level of corruption",
+          "fr": "Niveau perçu de corruption",
+          "de": "Wahrgenommenes Korruptionsniveau",
+          "ro": "Nivelul perceput de corupție",
+          "nl": "Ervaren niveau van corruptie",
+          "el": "Αντιλαμβανόμενο επίπεδο διαφθοράς",
+          "sk": "Vnímaná miera korupcie",
+          "ca": "Nivell percebut de corrupció",
+          "es": "Nivel percibido de corrupción"
+        }
       }
     }
   },
   "media_access_index": {
     "direction": "high_is_good",
-    "short_label": "Media access",
-    "label": "News deserts / media access",
+    "short_label": {
+      "en": "Media access",
+      "fr": "Accès aux médias",
+      "de": "Medienzugang",
+      "ro": "Acces la mass-media",
+      "nl": "Media-toegang",
+      "el": "Πρόσβαση στα μέσα ενημέρωσης",
+      "sk": "Prístup k médiám",
+      "ca": "Accés als mitjans",
+      "es": "Acceso a los medios"
+    },
+    "label": {
+      "en": "News deserts / media access",
+      "fr": "Déserts d'information et accès aux médias",
+      "de": "Nachrichtenwüsten / Medienzugang",
+      "ro": "Deserturi informaționale / acces la mass-media",
+      "nl": "Nieuwswoestijnen / media-toegang",
+      "el": "Ενημερωτικές «έρημοι» / πρόσβαση στα μέσα",
+      "sk": "Mediálne púšte / prístup k médiám",
+      "ca": "Deserts informatius / accés als mitjans",
+      "es": "Desiertos informativos / acceso a los medios"
+    },
     "subs": {
       "local_media_presence": {
         "direction": "high_is_good",
-        "label": "Presence of local news outlets"
+        "label": {
+          "en": "Presence of local news outlets",
+          "fr": "Présence de médias d'information locaux",
+          "de": "Vorhandensein lokaler Nachrichtenmedien",
+          "ro": "Prezența mass-mediei locale",
+          "nl": "Aanwezigheid van lokale nieuwsmedia",
+          "el": "Παρουσία τοπικών μέσων ενημέρωσης",
+          "sk": "Prítomnosť miestnych spravodajských médií",
+          "ca": "Presència de mitjans d'informació locals",
+          "es": "Presencia de medios de comunicación locales"
+        }
       },
       "digital_literacy": {
         "direction": "high_is_good",
-        "label": "Digital literacy / media literacy"
+        "label": {
+          "en": "Digital literacy / media literacy",
+          "fr": "Compétences numériques et médiatiques",
+          "de": "Digitale Kompetenz / Medienkompetenz",
+          "ro": "Alfabetizare digitală / alfabetizare media",
+          "nl": "Digitale geletterdheid / mediawijsheid",
+          "el": "Ψηφιακός/μιντιακός αλφαβητισμός",
+          "sk": "Digitálna gramotnosť / mediálna gramotnosť",
+          "ca": "Alfabetització digital / mediàtica",
+          "es": "Alfabetización digital / mediática"
+        }
       },
       "internet_coverage": {
         "direction": "high_is_good",
-        "label": "Broadband/internet coverage"
+        "label": {
+          "en": "Broadband/internet coverage",
+          "fr": "Couverture haut débit/internet",
+          "de": "Breitband-/Internetabdeckung",
+          "ro": "Acoperire broadband/internet",
+          "nl": "Breedband-/internetdekking",
+          "el": "Κάλυψη ευρυζωνικού/διαδικτύου",
+          "sk": "Pokrytie širokopásmovým internetom",
+          "ca": "Cobertura de banda ampla/internet",
+          "es": "Cobertura de banda ancha/internet"
+        }
       }
     }
   }

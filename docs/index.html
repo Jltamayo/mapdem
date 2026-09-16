@@ -81,6 +81,20 @@
   .outermostBox .obMap { height: 62px; }
   .outermostBox.obWide .obMap { height: 78px; }
 
+  /* Language switcher — first thing in the text panel, above the title, so
+     it reads as a persistent status bar rather than a setting buried in
+     content. Flag emoji are decorative only (a flag is not a reliable proxy
+     for a language — Belgium/Netherlands both use nl, Spain's ca/es share a
+     flag); the language code text is what actually disambiguates. */
+  #langSwitcher { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px;
+                  padding-bottom: 10px; border-bottom: 1px solid #eee; }
+  .langBtn { display: flex; align-items: center; gap: 4px; border: 1px solid #ddd;
+             background: #fff; border-radius: 4px; padding: 3px 7px; cursor: pointer;
+             font-family: inherit; font-size: 12px; color: #52514e; }
+  .langBtn:hover { background: #f5f5f5; }
+  .langBtn.active { border-color: #312E81; background: #312E81; color: #fff; font-weight: bold; }
+  .langFlag { font-size: 14px; line-height: 1; }
+
   /* Mobile layout: below this width, #app switches from a row (map | panel
      side by side) to a column (map on top, panel below), and the map gets a
      fixed viewport-relative height instead of stretching to fill #app — a
@@ -116,6 +130,7 @@
     .no-data-note { font-size: 14px; }
     #refLegend { font-size: 14px; }
     #refCaption { font-size: 12px; }
+    .langBtn { font-size: 14px; padding: 6px 10px; }
   }
 </style>
 </head>
@@ -124,13 +139,14 @@
 <div id="app">
   <div id="mapWrap">
     <div id="banner">Click a region — map and chart stay in sync (real NUTS3 boundaries, GISCO 2024; indicator values are still synthetic)</div>
+
     <div id="map" style="height:100%"></div>
     <div id="choroplethLegend">
       <div id="choroplethLegendTitle"></div>
       <div id="choroplethLegendDirection"></div>
       <div class="gradientBar" id="choroplethGradientBar"></div>
       <div class="gradientScale" id="choroplethGradientScale"></div>
-      <div class="noDataRow"><span class="noDataSwatch"></span><span>No data</span></div>
+      <div class="noDataRow"><span class="noDataSwatch"></span><span id="legendNoDataLabel">No data</span></div>
     </div>
     <div id="outermostInset">
       <div class="outermostBox obWide"><div class="obLabel">Canarias</div><div class="obMap" id="ob_canarias"></div></div>
@@ -151,7 +167,8 @@
   </div>
   <div id="panel">
     <div id="panelInner">
-      <h2>MAPDEM — linked views prototype</h2>
+      <div id="langSwitcher"></div>
+      <h2 id="appTitle">MAPDEM — linked views prototype</h2>
       <div id="domainHeading"></div>
       <div id="domainDesc"></div>
       <div id="regionTitle">No region selected</div>
@@ -179,6 +196,234 @@
   const NAMES_URL = "data/processed/nuts_names.json";
   const HIERARCHY_URL = "data/processed/domain_hierarchy.json";
 
+  // --- i18n: static UI chrome (everything NOT sourced from domain_hierarchy.json,
+  // which carries its own per-language labels straight from the pipeline).
+  // Translations are machine-quality drafts, not reviewed by a native speaker —
+  // fine for this first demo, but flag for review before any real presentation,
+  // particularly ro/nl/el/sk. Languages: the 3 JUSTPLACE working languages (en/fr/de)
+  // plus one local language per Democracy Studios pilot territory named in the
+  // proposal (ro=Iasi, nl=Flanders, el=Karditsa/Volos, sk=Bratislava, ca+es=Barcelona)
+  // — Hauts-de-France is already covered by fr. The unnamed 7th pilot is deliberately
+  // not included yet (see CLAUDE.md); add it the same way once confirmed.
+  //
+  // Catalan has no Unicode flag emoji of its own (no ISO 3166-2 tag sequence is
+  // registered for it the way Scotland/Wales/England have), and re-using Spain's
+  // flag for it would be actively misleading given ca and es are offered as two
+  // distinct options here — so its flag is drawn as an inline SVG of the Senyera
+  // (Catalonia's official flag: 4 red bars on gold) instead of an emoji character.
+  const CATALAN_FLAG_SVG =
+    '<svg viewBox="0 0 900 600" width="16" height="11" style="vertical-align:middle" role="img" aria-label="Senyera">' +
+    '<rect width="900" height="600" fill="#FCDD09"/>' +
+    '<rect y="66.7" width="900" height="66.7" fill="#DA121A"/>' +
+    '<rect y="200" width="900" height="66.7" fill="#DA121A"/>' +
+    '<rect y="333.3" width="900" height="66.7" fill="#DA121A"/>' +
+    '<rect y="466.7" width="900" height="66.7" fill="#DA121A"/>' +
+    "</svg>";
+
+  const LANGUAGES = [
+    { code: "en", flag: "🇬🇧", name: "English" },
+    { code: "fr", flag: "🇫🇷", name: "Français" },
+    { code: "de", flag: "🇩🇪", name: "Deutsch" },
+    { code: "ro", flag: "🇷🇴", name: "Română" },
+    { code: "nl", flag: "🇧🇪", name: "Nederlands" },
+    { code: "el", flag: "🇬🇷", name: "Ελληνικά" },
+    { code: "sk", flag: "🇸🇰", name: "Slovenčina" },
+    { code: "ca", flagSvg: CATALAN_FLAG_SVG, name: "Català" },
+    { code: "es", flag: "🇪🇸", name: "Español" },
+  ];
+  let currentLang = "en";
+
+  const UI_STRINGS = {
+    appTitle: {
+      en: "MAPDEM — linked views prototype", fr: "MAPDEM — prototype de vues liées",
+      de: "MAPDEM — Prototyp verknüpfter Ansichten", ro: "MAPDEM — prototip de vizualizări conectate",
+      nl: "MAPDEM — prototype met gekoppelde weergaven", el: "MAPDEM — πρωτότυπο συνδεδεμένων προβολών",
+      sk: "MAPDEM — prototyp prepojených zobrazení",
+      ca: "MAPDEM — prototip de vistes vinculades", es: "MAPDEM — prototipo de vistas vinculadas",
+    },
+    bannerText: {
+      en: "Click a region — map and chart stay in sync (real NUTS3 boundaries, GISCO 2024; indicator values are still synthetic)",
+      fr: "Cliquez sur une région — la carte et le graphique restent synchronisés (limites NUTS3 réelles, GISCO 2024 ; les valeurs des indicateurs sont encore synthétiques)",
+      de: "Klicken Sie auf eine Region — Karte und Diagramm bleiben synchron (reale NUTS3-Grenzen, GISCO 2024; die Indikatorwerte sind noch synthetisch)",
+      ro: "Faceți clic pe o regiune — harta și graficul rămân sincronizate (granițe NUTS3 reale, GISCO 2024; valorile indicatorilor sunt încă sintetice)",
+      nl: "Klik op een regio — kaart en grafiek blijven synchroon (echte NUTS3-grenzen, GISCO 2024; de indicatorwaarden zijn nog synthetisch)",
+      el: "Κάντε κλικ σε μια περιοχή — ο χάρτης και το γράφημα παραμένουν συγχρονισμένα (πραγματικά όρια NUTS3, GISCO 2024· οι τιμές των δεικτών είναι ακόμη συνθετικές)",
+      sk: "Kliknite na región — mapa a graf zostávajú synchronizované (skutočné hranice NUTS3, GISCO 2024; hodnoty ukazovateľov sú zatiaľ syntetické)",
+      ca: "Feu clic en una regió — el mapa i el gràfic es mantenen sincronitzats (límits NUTS3 reals, GISCO 2024; els valors dels indicadors encara són sintètics)",
+      es: "Haz clic en una región — el mapa y el gráfico se mantienen sincronizados (límites NUTS3 reales, GISCO 2024; los valores de los indicadores todavía son sintéticos)",
+    },
+    noRegionSelected: {
+      en: "No region selected", fr: "Aucune région sélectionnée", de: "Keine Region ausgewählt",
+      ro: "Nicio regiune selectată", nl: "Geen regio geselecteerd", el: "Δεν έχει επιλεγεί περιοχή",
+      sk: "Nie je vybraný žiadny región",
+      ca: "Cap regió seleccionada", es: "Ninguna región seleccionada",
+    },
+    regionHintDefault: {
+      en: "Click any region on the map to see its indicator breakdown here. Hover previews the region without changing the chart.",
+      fr: "Cliquez sur une région de la carte pour voir ici le détail de ses indicateurs. Le survol prévisualise la région sans modifier le graphique.",
+      de: "Klicken Sie auf eine beliebige Region auf der Karte, um hier ihre Indikatoraufschlüsselung zu sehen. Beim Überfahren mit der Maus wird die Region in einer Vorschau angezeigt, ohne das Diagramm zu ändern.",
+      ro: "Faceți clic pe orice regiune de pe hartă pentru a vedea aici detalierea indicatorilor. Trecerea cu mouse-ul previzualizează regiunea fără a modifica graficul.",
+      nl: "Klik op een regio op de kaart om hier de indicatoruitsplitsing te zien. Hoveren toont een voorbeeld van de regio zonder de grafiek te wijzigen.",
+      el: "Κάντε κλικ σε οποιαδήποτε περιοχή στον χάρτη για να δείτε εδώ την ανάλυση των δεικτών της. Το πέρασμα του δείκτη εμφανίζει προεπισκόπηση της περιοχής χωρίς να αλλάζει το γράφημα.",
+      sk: "Kliknite na ľubovoľný región na mape a zobrazí sa tu rozpis jeho ukazovateľov. Prejdenie kurzorom zobrazí náhľad regiónu bez zmeny grafu.",
+      ca: "Feu clic en qualsevol regió del mapa per veure aquí el desglossament dels seus indicadors. En passar-hi per sobre es mostra una previsualització de la regió sense canviar el gràfic.",
+      es: "Haz clic en cualquier región del mapa para ver aquí el desglose de sus indicadores. Al pasar el cursor se previsualiza la región sin cambiar el gráfico.",
+    },
+    regionHintSelected: {
+      en: "Showing indicator breakdown below. Click another region to compare, or switch tabs to see a different indicator for the same region.",
+      fr: "Le détail des indicateurs est affiché ci-dessous. Cliquez sur une autre région pour comparer, ou changez d'onglet pour voir un autre indicateur pour la même région.",
+      de: "Die Indikatoraufschlüsselung wird unten angezeigt. Klicken Sie auf eine andere Region zum Vergleichen oder wechseln Sie die Registerkarte, um einen anderen Indikator für dieselbe Region zu sehen.",
+      ro: "Detalierea indicatorilor este afișată mai jos. Faceți clic pe altă regiune pentru a compara sau schimbați fila pentru a vedea un alt indicator pentru aceeași regiune.",
+      nl: "De indicatoruitsplitsing wordt hieronder getoond. Klik op een andere regio om te vergelijken, of wissel van tabblad om een andere indicator voor dezelfde regio te zien.",
+      el: "Η ανάλυση των δεικτών εμφανίζεται παρακάτω. Κάντε κλικ σε άλλη περιοχή για σύγκριση ή αλλάξτε καρτέλα για να δείτε διαφορετικό δείκτη για την ίδια περιοχή.",
+      sk: "Nižšie je zobrazený rozpis ukazovateľov. Kliknutím na iný región ho porovnáte, alebo prepnite kartu a zobrazíte iný ukazovateľ pre rovnaký región.",
+      ca: "El desglossament dels indicadors es mostra a sota. Feu clic en una altra regió per comparar, o canvieu de pestanya per veure un altre indicador de la mateixa regió.",
+      es: "El desglose de indicadores se muestra debajo. Haz clic en otra región para comparar, o cambia de pestaña para ver otro indicador de la misma región.",
+    },
+    regionPrefix: {
+      en: "Region: ", fr: "Région : ", de: "Region: ", ro: "Regiune: ", nl: "Regio: ",
+      el: "Περιοχή: ", sk: "Región: ", ca: "Regió: ", es: "Región: ",
+    },
+    missingNoteTemplate: {
+      en: "No data for this region: {list} (shown as grey / zero, not a real zero value).",
+      fr: "Pas de données pour cette région : {list} (affiché en gris / zéro, mais ce n'est pas une valeur nulle réelle).",
+      de: "Keine Daten für diese Region: {list} (grau / null dargestellt, aber kein echter Nullwert).",
+      ro: "Fără date pentru această regiune: {list} (afișat în gri / zero, dar nu este o valoare zero reală).",
+      nl: "Geen gegevens voor deze regio: {list} (weergegeven in grijs / nul, maar geen echte nulwaarde).",
+      el: "Δεν υπάρχουν δεδομένα για αυτή την περιοχή: {list} (εμφανίζεται γκρι / μηδέν, όχι πραγματική μηδενική τιμή).",
+      sk: "Pre tento región nie sú k dispozícii žiadne údaje: {list} (zobrazené sivou farbou / ako nula, nie je to skutočná nulová hodnota).",
+      ca: "Sense dades per a aquesta regió: {list} (es mostra en gris / zero, no és un valor zero real).",
+      es: "Sin datos para esta región: {list} (se muestra en gris / cero, no es un valor cero real).",
+    },
+    refCaption: {
+      en: "Reference ticks: simple (unweighted) mean across sibling NUTS3 regions at each level, not population-weighted. First row is the domain indicator; the rows below it, each prefixed \"↳\", are the sub-indicators it's built from.",
+      fr: "Repères de référence : moyenne simple (non pondérée) des régions NUTS3 voisines à chaque niveau, non pondérée par la population. La première ligne est l'indicateur de domaine ; les lignes suivantes, précédées de « ↳ », sont les sous-indicateurs qui le composent.",
+      de: "Referenzstriche: einfacher (ungewichteter) Mittelwert über benachbarte NUTS3-Regionen auf jeder Ebene, nicht bevölkerungsgewichtet. Die erste Zeile ist der Domänenindikator; die Zeilen darunter, jeweils mit „↳“ versehen, sind die Teilindikatoren, aus denen er sich zusammensetzt.",
+      ro: "Repere de referință: media simplă (neponderată) pe regiunile NUTS3 vecine la fiecare nivel, fără ponderare cu populația. Primul rând este indicatorul de domeniu; rândurile de dedesubt, fiecare prefixat cu „↳”, sunt subindicatorii din care este construit.",
+      nl: "Referentiestreepjes: eenvoudig (ongewogen) gemiddelde over naburige NUTS3-regio's op elk niveau, niet gewogen naar bevolking. De eerste rij is de domeinindicator; de rijen daaronder, elk voorafgegaan door \"↳\", zijn de subindicatoren waaruit deze is opgebouwd.",
+      el: "Γραμμές αναφοράς: απλός (μη σταθμισμένος) μέσος όρος στις γειτονικές περιοχές NUTS3 σε κάθε επίπεδο, χωρίς στάθμιση πληθυσμού. Η πρώτη γραμμή είναι ο δείκτης τομέα· οι παρακάτω γραμμές, με πρόθεμα «↳», είναι οι επιμέρους δείκτες από τους οποίους προκύπτει.",
+      sk: "Referenčné značky: jednoduchý (nevážený) priemer susedných regiónov NUTS3 na každej úrovni, bez váženia podľa počtu obyvateľov. Prvý riadok je ukazovateľ domény; riadky pod ním, každý s predponou „↳“, sú čiastkové ukazovatele, z ktorých je zostavený.",
+      ca: "Marques de referència: mitjana simple (no ponderada) de les regions NUTS3 veïnes a cada nivell, no ponderada per població. La primera fila és l'indicador de domini; les files de sota, cadascuna amb el prefix «↳», són els subindicadors amb què es construeix.",
+      es: "Marcas de referencia: media simple (no ponderada) de las regiones NUTS3 vecinas en cada nivel, no ponderada por población. La primera fila es el indicador de dominio; las filas de debajo, cada una con el prefijo «↳», son los subindicadores con los que se construye.",
+    },
+    directionHigher: {
+      en: "higher is better", fr: "plus élevé est préférable", de: "höher ist besser",
+      ro: "mai mare este mai bine", nl: "hoger is beter", el: "υψηλότερο είναι καλύτερο",
+      sk: "vyššie je lepšie",
+      ca: "com més alt, millor", es: "cuanto más alto, mejor",
+    },
+    directionLower: {
+      en: "lower is better", fr: "plus bas est préférable", de: "niedriger ist besser",
+      ro: "mai mic este mai bine", nl: "lager is beter", el: "χαμηλότερο είναι καλύτερο",
+      sk: "nižšie je lepšie",
+      ca: "com més baix, millor", es: "cuanto más bajo, mejor",
+    },
+    refLevelEu: {
+      en: "EU average", fr: "Moyenne UE", de: "EU-Durchschnitt", ro: "Media UE",
+      nl: "EU-gemiddelde", el: "Μέσος όρος ΕΕ", sk: "Priemer EÚ", ca: "Mitjana UE", es: "Media UE",
+    },
+    refLevelCountry: {
+      en: "Country average", fr: "Moyenne nationale", de: "Landesdurchschnitt", ro: "Media națională",
+      nl: "Landelijk gemiddelde", el: "Εθνικός μέσος όρος", sk: "Národný priemer",
+      ca: "Mitjana estatal", es: "Media nacional",
+    },
+    refLevelNuts1: {
+      en: "NUTS1 average", fr: "Moyenne NUTS1", de: "NUTS1-Durchschnitt", ro: "Media NUTS1",
+      nl: "NUTS1-gemiddelde", el: "Μέσος όρος NUTS1", sk: "Priemer NUTS1", ca: "Mitjana NUTS1", es: "Media NUTS1",
+    },
+    refLevelNuts2: {
+      en: "NUTS2 average", fr: "Moyenne NUTS2", de: "NUTS2-Durchschnitt", ro: "Media NUTS2",
+      nl: "NUTS2-gemiddelde", el: "Μέσος όρος NUTS2", sk: "Priemer NUTS2", ca: "Mitjana NUTS2", es: "Media NUTS2",
+    },
+    legendNoData: {
+      en: "No data", fr: "Pas de données", de: "Keine Daten", ro: "Fără date",
+      nl: "Geen gegevens", el: "Χωρίς δεδομένα", sk: "Žiadne údaje", ca: "Sense dades", es: "Sin datos",
+    },
+    pdfButtonTitle: {
+      en: "Export map (+ selected region) as PDF", fr: "Exporter la carte (+ région sélectionnée) en PDF",
+      de: "Karte (+ ausgewählte Region) als PDF exportieren", ro: "Exportă harta (+ regiunea selectată) în PDF",
+      nl: "Kaart (+ geselecteerde regio) exporteren als PDF", el: "Εξαγωγή χάρτη (+ επιλεγμένη περιοχή) ως PDF",
+      sk: "Exportovať mapu (+ vybraný región) ako PDF",
+      ca: "Exporta el mapa (+ regió seleccionada) a PDF", es: "Exportar el mapa (+ región seleccionada) a PDF",
+    },
+  };
+
+  // Looks up `key` in UI_STRINGS for the current language (falling back to
+  // English if that language is missing the key), then substitutes any
+  // {varName} placeholders from `vars`.
+  function t(key, vars) {
+    const entry = UI_STRINGS[key];
+    let str = (entry && (entry[currentLang] || entry.en)) || key;
+    if (vars) {
+      for (const k in vars) str = str.replace(`{${k}}`, vars[k]);
+    }
+    return str;
+  }
+
+  // Same fallback rule as t(), but for a {lang: text} dict that came
+  // straight from domain_hierarchy.json instead of from UI_STRINGS.
+  function pick(dict) {
+    return (dict && (dict[currentLang] || dict.en)) || "";
+  }
+
+  function buildLangSwitcher() {
+    const container = document.getElementById("langSwitcher");
+    container.innerHTML = "";
+    for (const l of LANGUAGES) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "langBtn";
+      btn.id = "lang_" + l.code;
+      btn.title = l.name;
+      btn.innerHTML = `<span class="langFlag">${l.flagSvg || l.flag}</span><span>${l.code.toUpperCase()}</span>`;
+      btn.addEventListener("click", () => applyLanguage(l.code));
+      container.appendChild(btn);
+    }
+    updateLangSwitcherUI();
+  }
+
+  function updateLangSwitcherUI() {
+    for (const l of LANGUAGES) {
+      const btn = document.getElementById("lang_" + l.code);
+      if (btn) btn.classList.toggle("active", l.code === currentLang);
+    }
+  }
+
+  // Refreshes #regionTitle/#regionHint for the current language, whether or
+  // not a region is selected — shared by selectRegion() and applyLanguage()
+  // so the two never drift into different wording for the same state.
+  function updateRegionTexts() {
+    if (currentRow) {
+      document.getElementById("regionTitle").textContent = t("regionPrefix") + codeAndName(currentRow.nuts3);
+      document.getElementById("regionHint").textContent = t("regionHintSelected");
+    } else {
+      document.getElementById("regionTitle").textContent = t("noRegionSelected");
+      document.getElementById("regionHint").textContent = t("regionHintDefault");
+    }
+  }
+
+  // Switches the active language and refreshes every piece of on-screen text
+  // — static chrome directly, and domain-tab/legend/chart text by re-running
+  // the same builders selectDomain()/buildChart() already use (so there's no
+  // second code path to keep in sync with the initial render).
+  function applyLanguage(lang) {
+    currentLang = lang;
+    document.documentElement.lang = lang;
+    document.getElementById("appTitle").textContent = t("appTitle");
+    document.getElementById("banner").textContent = t("bannerText");
+    document.getElementById("refCaption").textContent = t("refCaption");
+    const legendNoData = document.getElementById("legendNoDataLabel");
+    if (legendNoData) legendNoData.textContent = t("legendNoData");
+    if (pdfLinkEl) pdfLinkEl.title = t("pdfButtonTitle");
+    updateLangSwitcherUI();
+    if (domainOrder.length) {
+      buildDomainTabs();
+      buildRefLegend();
+      if (activeDomainKey) selectDomain(activeDomainKey);
+    }
+    updateRegionTexts();
+  }
+
   // Reference levels drawn as vertical ticks crossing each horizontal bar.
   // Colors are the first 4 slots of DOMAIN_PALETTE below (indigo, amber,
   // teal, rose) — re-validated 2026-09-16 for a more contemporary look
@@ -191,10 +436,10 @@
   // (2) -> NUTS1 "ES5" (3) -> NUTS2 "ES51" (4)); "eu" has no parent, one
   // group for everything.
   const REFERENCE_LEVELS = [
-    { key: "eu",    label: "EU average",      color: "#4F46E5", prefixLen: 0, defaultOn: true },
-    { key: "nuts0", label: "Country average", color: "#F59E0B", prefixLen: 2, defaultOn: true },
-    { key: "nuts1", label: "NUTS1 average",   color: "#14B8A6", prefixLen: 3, defaultOn: false },
-    { key: "nuts2", label: "NUTS2 average",   color: "#E11D48", prefixLen: 4, defaultOn: false },
+    { key: "eu",    labelKey: "refLevelEu",      color: "#4F46E5", prefixLen: 0, defaultOn: true },
+    { key: "nuts0", labelKey: "refLevelCountry", color: "#F59E0B", prefixLen: 2, defaultOn: true },
+    { key: "nuts1", labelKey: "refLevelNuts1",   color: "#14B8A6", prefixLen: 3, defaultOn: false },
+    { key: "nuts2", labelKey: "refLevelNuts2",   color: "#E11D48", prefixLen: 4, defaultOn: false },
   ];
   const activeLevels = new Set(REFERENCE_LEVELS.filter((l) => l.defaultOn).map((l) => l.key));
 
@@ -494,13 +739,16 @@
     pdf.save(`mapdem_${activeDomainKey}${regionPart}.pdf`);
   }
 
+  let pdfLinkEl = null;
+
   const ExportPdfControl = L.Control.extend({
     options: { position: "topleft" },
     onAdd() {
       const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
       const link = L.DomUtil.create("a", "", container);
+      pdfLinkEl = link;
       link.href = "#";
-      link.title = "Export map (+ selected region) as PDF";
+      link.title = t("pdfButtonTitle");
       link.setAttribute("role", "button");
       link.textContent = "\u{1F5B6}"; // printer emoji, no extra icon asset needed
       // Match the layers-switcher button's own size (44x44, Leaflet's
@@ -604,13 +852,13 @@
   // domain, so this is the one place that phrasing comes from, reused by
   // both the legend and the panel heading.
   function directionHint(domain) {
-    return domain.direction === "high_is_good" ? "higher is better" : "lower is better";
+    return domain.direction === "high_is_good" ? t("directionHigher") : t("directionLower");
   }
 
   function updateChoroplethLegend() {
     const domain = domainsByKey[activeDomainKey];
     const title = document.getElementById("choroplethLegendTitle");
-    title.textContent = domain.shortLabel;
+    title.textContent = pick(domain.shortLabel);
     title.style.color = domain.color;
     document.getElementById("choroplethLegendDirection").textContent = `(${directionHint(domain)})`;
     document.getElementById("choroplethGradientBar").style.background =
@@ -658,9 +906,13 @@
   // "↳" would just look like a rendering glitch, not a hierarchy cue.
   function activeRows() {
     const domain = domainsByKey[activeDomainKey];
+    const domainLabel = pick(domain.shortLabel);
     return [
-      { key: activeDomainKey, label: domain.shortLabel, plainLabel: domain.shortLabel, isDomain: true },
-      ...domain.subs.map((s) => ({ key: s.key, label: "↳ " + s.label, plainLabel: s.label, isDomain: false })),
+      { key: activeDomainKey, label: domainLabel, plainLabel: domainLabel, isDomain: true },
+      ...domain.subs.map((s) => {
+        const subLabel = pick(s.label);
+        return { key: s.key, label: "↳ " + subLabel, plainLabel: subLabel, isDomain: false };
+      }),
     ];
   }
 
@@ -735,7 +987,7 @@
                 for (const level of REFERENCE_LEVELS) {
                   if (!activeLevels.has(level.key)) continue;
                   const v = refValues[level.key][rowIndex];
-                  lines.push(`${level.label}: ${v === null ? "no data" : v.toFixed(1)}`);
+                  lines.push(`${t(level.labelKey)}: ${v === null ? "no data" : v.toFixed(1)}`);
                 }
                 return lines;
               },
@@ -755,7 +1007,7 @@
     }
 
     document.getElementById("missingNote").textContent = missing.length
-      ? `No data for this region: ${missing.join(", ")} (shown as grey / zero, not a real zero value).`
+      ? t("missingNoteTemplate", { list: missing.join(", ") })
       : "";
   }
 
@@ -780,7 +1032,7 @@
       swatch.style.background = level.color;
       label.appendChild(checkbox);
       label.appendChild(swatch);
-      label.appendChild(document.createTextNode(level.label));
+      label.appendChild(document.createTextNode(t(level.labelKey)));
       // EU has no parent code to show; country/NUTS1/NUTS2 get a detail
       // span filled in per-selection by buildChart (e.g. "(DE — Deutschland)").
       if (level.prefixLen > 0) {
@@ -803,7 +1055,7 @@
     for (const key of domainOrder) {
       const domain = domainsByKey[key];
       const btn = document.createElement("button");
-      btn.textContent = domain.shortLabel;
+      btn.textContent = pick(domain.shortLabel);
       btn.id = "tab_" + key;
       btn.style.setProperty("--tab-color", domain.color);
       btn.style.setProperty("--tab-bg", domain.ramp.dark);
@@ -819,9 +1071,9 @@
     }
     const domain = domainsByKey[key];
     const heading = document.getElementById("domainHeading");
-    heading.textContent = `${domain.shortLabel} (${directionHint(domain)})`;
+    heading.textContent = `${pick(domain.shortLabel)} (${directionHint(domain)})`;
     heading.style.color = domain.color;
-    document.getElementById("domainDesc").textContent = domain.label;
+    document.getElementById("domainDesc").textContent = pick(domain.label);
     updateChoroplethLegend();
     if (geoLayer) repaintChoropleth();
     if (currentRow) buildChart(currentRow);
@@ -831,17 +1083,20 @@
     if (selectedLayer) selectedLayer.setStyle(STROKE_DEFAULT);
     selectedLayer = layer;
     layer.setStyle(STROKE_SELECTED);
-    document.getElementById("regionTitle").textContent =
-      "Region: " + codeAndName(feature.properties.nuts3);
-    document.getElementById("regionHint").textContent =
-      "Showing indicator breakdown below. Click another region to compare, or switch tabs to see a different indicator for the same region.";
     buildChart(indicatorData[feature.properties.nuts3]);
+    updateRegionTexts();
   }
 
   let indicatorData = {};
   let referenceAverages = {};
   let regionNames = {};
   let chart;
+
+  // Static UI chrome (title, banner, hints, caption) doesn't depend on the
+  // fetched data, so it's translated immediately — no flash of the wrong
+  // language while the fetch below is still in flight.
+  buildLangSwitcher();
+  applyLanguage(currentLang);
 
   Promise.all([
     fetch(GEOJSON_URL).then((r) => r.json()),
