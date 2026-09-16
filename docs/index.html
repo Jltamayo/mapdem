@@ -528,26 +528,26 @@
       es: "No hay datos disponibles para {domain} en {region}.",
     },
     storyBest: {
-      en: " Its strongest sub-indicator is {sub}, at {value}.",
-      fr: " Son sous-indicateur le plus fort est {sub}, avec {value}.",
-      de: " Der stärkste Teilindikator ist {sub} mit {value}.",
-      ro: " Cel mai puternic subindicator este {sub}, cu {value}.",
-      nl: " De sterkste subindicator is {sub}, met {value}.",
-      el: " Ο ισχυρότερος επιμέρους δείκτης είναι ο/η {sub}, με {value}.",
-      sk: " Najsilnejší čiastkový ukazovateľ je {sub}, s hodnotou {value}.",
-      ca: " El subindicador més fort és {sub}, amb {value}.",
-      es: " Su subindicador más fuerte es {sub}, con {value}.",
+      en: " Its strongest sub-indicator is {sub}, at {value} ({direction}).",
+      fr: " Son sous-indicateur le plus fort est {sub}, avec {value} ({direction}).",
+      de: " Der stärkste Teilindikator ist {sub} mit {value} ({direction}).",
+      ro: " Cel mai puternic subindicator este {sub}, cu {value} ({direction}).",
+      nl: " De sterkste subindicator is {sub}, met {value} ({direction}).",
+      el: " Ο ισχυρότερος επιμέρους δείκτης είναι ο/η {sub}, με {value} ({direction}).",
+      sk: " Najsilnejší čiastkový ukazovateľ je {sub}, s hodnotou {value} ({direction}).",
+      ca: " El subindicador més fort és {sub}, amb {value} ({direction}).",
+      es: " Su subindicador más fuerte es {sub}, con {value} ({direction}).",
     },
     storyWorst: {
-      en: " Its weakest sub-indicator is {sub}, at {value}.",
-      fr: " Son sous-indicateur le plus faible est {sub}, avec {value}.",
-      de: " Der schwächste Teilindikator ist {sub} mit {value}.",
-      ro: " Cel mai slab subindicator este {sub}, cu {value}.",
-      nl: " De zwakste subindicator is {sub}, met {value}.",
-      el: " Ο ασθενέστερος επιμέρους δείκτης είναι ο/η {sub}, με {value}.",
-      sk: " Najslabší čiastkový ukazovateľ je {sub}, s hodnotou {value}.",
-      ca: " El subindicador més feble és {sub}, amb {value}.",
-      es: " Su subindicador más débil es {sub}, con {value}.",
+      en: " Its weakest sub-indicator is {sub}, at {value} ({direction}).",
+      fr: " Son sous-indicateur le plus faible est {sub}, avec {value} ({direction}).",
+      de: " Der schwächste Teilindikator ist {sub} mit {value} ({direction}).",
+      ro: " Cel mai slab subindicator este {sub}, cu {value} ({direction}).",
+      nl: " De zwakste subindicator is {sub}, met {value} ({direction}).",
+      el: " Ο ασθενέστερος επιμέρους δείκτης είναι ο/η {sub}, με {value} ({direction}).",
+      sk: " Najslabší čiastkový ukazovateľ je {sub}, s hodnotou {value} ({direction}).",
+      ca: " El subindicador més feble és {sub}, amb {value} ({direction}).",
+      es: " Su subindicador más débil es {sub}, con {value} ({direction}).",
     },
   };
 
@@ -1126,8 +1126,11 @@
   // ascending — it no longer signals which end is "good" for a given
   // domain, so this is the one place that phrasing comes from, reused by
   // both the legend and the panel heading.
+  function directionHintFor(direction) {
+    return direction === "high_is_good" ? t("directionHigher") : t("directionLower");
+  }
   function directionHint(domain) {
-    return domain.direction === "high_is_good" ? t("directionHigher") : t("directionLower");
+    return directionHintFor(domain.direction);
   }
 
   function updateChoroplethLegend() {
@@ -1348,7 +1351,7 @@
           // on screen, which always stays the raw, un-oriented value.
           const oriented = s.direction === domain.direction ? raw : 100 - raw;
           const goodness = domain.direction === "low_is_good" ? 100 - oriented : oriented;
-          return { label: pick(s.label), raw, goodness };
+          return { label: pick(s.label), raw, goodness, direction: s.direction };
         })
         .filter(Boolean);
 
@@ -1356,8 +1359,16 @@
         const best = subsWithData.reduce((a, b) => (b.goodness > a.goodness ? b : a));
         const worst = subsWithData.reduce((a, b) => (b.goodness < a.goodness ? b : a));
         if (best.label !== worst.label) {
-          parts.push(t("storyBest", { sub: best.label, value: best.raw.toFixed(1) }));
-          parts.push(t("storyWorst", { sub: worst.label, value: worst.raw.toFixed(1) }));
+          // Each sub-indicator's own direction may differ from the domain's
+          // (as here: a low_is_good domain can have a high_is_good sub) —
+          // stating it is what stops "strongest is 66.5, weakest is 75.5"
+          // from reading as a contradiction (a real report from the user:
+          // without the direction, a numerically smaller "strongest" looks
+          // backwards).
+          parts.push(t("storyBest", { sub: best.label, value: best.raw.toFixed(1),
+                                       direction: directionHintFor(best.direction) }));
+          parts.push(t("storyWorst", { sub: worst.label, value: worst.raw.toFixed(1),
+                                        direction: directionHintFor(worst.direction) }));
         }
       }
     }
