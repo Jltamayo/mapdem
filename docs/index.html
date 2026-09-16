@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>MAPDEM — prototype</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
@@ -79,6 +80,43 @@
                             overflow: hidden; text-overflow: ellipsis; }
   .outermostBox .obMap { height: 62px; }
   .outermostBox.obWide .obMap { height: 78px; }
+
+  /* Mobile layout: below this width, #app switches from a row (map | panel
+     side by side) to a column (map on top, panel below), and the map gets a
+     fixed viewport-relative height instead of stretching to fill #app — a
+     flex item's flex-basis only sizes it when the flex container itself has
+     a definite cross size, and on mobile the container is left to grow with
+     its content (so the whole page scrolls) rather than being pinned to
+     100vh, which would otherwise clip the panel instead of letting it flow
+     below the map. Font sizes throughout are bumped for touch/reading
+     distance, not just to fit — the desktop sizes are print/mouse sizes. */
+  @media (max-width: 768px) {
+    #domainTabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    #domainTabs button { flex: 0 0 auto; min-width: 110px; font-size: 15px; padding: 12px 14px; }
+
+    #app { flex-direction: column; }
+    #mapWrap { flex: 0 0 55vh; min-height: 300px; }
+    #panel { flex: 1 1 auto; overflow-y: visible; }
+    #panelInner { border-left: none; border-top: 1px solid #ddd; }
+
+    #banner { left: 50px; right: 150px; font-size: 13px; }
+    #outermostInset { width: 130px; }
+    .outermostBox .obLabel { font-size: 9px; }
+    .outermostBox .obMap { height: 38px; }
+    .outermostBox.obWide .obMap { height: 48px; }
+
+    #choroplethLegend { font-size: 13px; }
+    #choroplethLegend .gradientBar { width: 110px; }
+
+    h2 { font-size: 19px; }
+    #domainHeading { font-size: 17px; }
+    #domainDesc { font-size: 14px; }
+    #regionTitle { font-size: 21px; }
+    #regionHint { font-size: 14px; }
+    .no-data-note { font-size: 14px; }
+    #refLegend { font-size: 14px; }
+    #refCaption { font-size: 12px; }
+  }
 </style>
 </head>
 <body>
