@@ -1,11 +1,22 @@
 """
 Generates synthetic indicator values for every NUTS3 region in the GISCO
-GeoPackage (data/NUTS_RG_20M_2024_4326.gpkg), so the site (docs/index.html)
+GeoPackage (data/NUTS_RG_10M_2024_4326.gpkg), so the site (docs/index.html)
 can be built and tested end-to-end against the full, real region set before
 partner indicator data arrives. Only the indicator values are synthetic —
 the geometries and region codes/names are real Eurostat GISCO 2024 data.
 Partner data will simply replace this CSV later; the NUTS3 set and the
 geometries stay the same.
+
+Boundary resolution: 10M (1:10,000,000 generalisation), not GISCO's coarser
+20M default — decided with the user after comparing vertex counts/file size
+across GISCO's 4 tiers on Norway's fjords (20M: 1183 vertices/~3.2MB
+deployed; 10M: 2907/~4.8MB; 3M: 13357/~13MB; 1M: 63892/~55MB). 1M-for-
+everything was ruled out as too heavy for a static, mobile-friendly GitHub
+Pages site; 10M was chosen as a real but modest improvement over 20M's
+faceted coastlines, without the page-weight cost of 3M/1M. The 14 outermost
+regions (Canarias/Açores/Madeira/French RUP) separately get 1M-resolution
+geometry regardless (see OUTERMOST_HIRES_PATH below) — they're rendered
+zoomed in tight enough that even 10M would still look coarse there.
 
 Output goes straight into docs/data/processed/, because that folder is the
 single source of truth GitHub Pages actually serves once the repo is
@@ -25,21 +36,22 @@ from gpkg_reader import read_features
 
 random.seed(42)
 
-GPKG_PATH = Path(__file__).resolve().parents[1] / "data" / "NUTS_RG_20M_2024_4326.gpkg"
-GPKG_TABLE = "NUTS_RG_20M_2024_4326"
+GPKG_PATH = Path(__file__).resolve().parents[1] / "data" / "NUTS_RG_10M_2024_4326.gpkg"
+GPKG_TABLE = "NUTS_RG_10M_2024_4326"
 
-# Higher-resolution (GISCO 1:1M, vs. the 20M above) boundaries for just the
+# Higher-resolution (GISCO 1:1M, vs. the 10M above) boundaries for just the
 # 14 outermost-region NUTS3 codes (Canarias x7, Açores, Madeira, and the 5
-# French RUP) — at 20M their coastlines are coarse enough to look visibly
-# faceted once docs/index.html zooms its outermost-region inset mini-maps in
-# tight on a single small island, even though that same coarseness is
-# invisible zoomed out to all of Europe (reported by the user from a live
-# screenshot). Fetched once from GISCO's own GeoJSON distribution
-# (https://gisco-services.ec.europa.eu/distribution/v2/nuts/geojson/
-# NUTS_RG_01M_2024_4326_LEVL_3.geojson, ~27MB for the whole of Europe) and
-# filtered down to just these 14 features — the checked-in file is ~190KB,
-# not the full continent at 1M resolution. Every other region keeps the 20M
-# geometry unchanged; this never touches the main map, only the 8 insets.
+# French RUP) — even at 10M their coastlines are coarse enough to look
+# visibly faceted once docs/index.html zooms its outermost-region inset
+# mini-maps in tight on a single small island, even though that same
+# coarseness is invisible zoomed out to all of Europe (reported by the user
+# from a live screenshot). Fetched once from GISCO's own GeoJSON
+# distribution (https://gisco-services.ec.europa.eu/distribution/v2/nuts/
+# geojson/NUTS_RG_01M_2024_4326_LEVL_3.geojson, ~27MB for the whole of
+# Europe) and filtered down to just these 14 features — the checked-in file
+# is ~190KB, not the full continent at 1M resolution. Every other region
+# keeps the 10M geometry unchanged; this never touches the main map, only
+# the 8 insets.
 OUTERMOST_HIRES_PATH = Path(__file__).resolve().parents[1] / "data" / "outermost_regions_01M_4326.geojson"
 
 
