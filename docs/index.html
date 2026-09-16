@@ -44,13 +44,15 @@
   #refCaption { font-size: 11px; color: #898781; margin-top: 6px; }
 
   /* Choropleth legend, bottom-left of the map — two sub-legends: the colour
-     scale (with a real 0-100 numeric axis, direction-corrected per domain)
-     and, separately, what grey means (no data), so the two encodings
-     ("this is a value" vs. "this is an absence of value") don't get read
-     as one continuous scale. */
+     scale (0-100, always ascending — colour follows the raw value directly)
+     with a direction hint (which end is "better" for this domain, since
+     the colour itself no longer encodes that) and, separately, what grey
+     means (no data), so the two encodings ("this is a value" vs. "this is
+     an absence of value") don't get read as one continuous scale. */
   #choroplethLegend { position: absolute; z-index: 1000; bottom: 10px; left: 10px; background: white;
                        padding: 6px 10px; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,.3);
                        font-size: 11px; color: #52514e; }
+  #choroplethLegend #choroplethLegendDirection { font-size: 10px; color: #898781; margin-top: -2px; }
   #choroplethLegend .gradientBar { width: 140px; height: 10px; border-radius: 2px; margin: 3px 0 1px; }
   #choroplethLegend .gradientScale { display: flex; justify-content: space-between; font-size: 10px;
                                       color: #898781; }
@@ -84,6 +86,7 @@
     <div id="map" style="height:100%"></div>
     <div id="choroplethLegend">
       <div id="choroplethLegendTitle"></div>
+      <div id="choroplethLegendDirection"></div>
       <div class="gradientBar" id="choroplethGradientBar"></div>
       <div class="gradientScale" id="choroplethGradientScale"></div>
       <div class="noDataRow"><span class="noDataSwatch"></span><span>No data</span></div>
@@ -325,15 +328,6 @@
     };
   }
 
-  // `orientedValue` folds a raw value + its own direction into one "higher =
-  // better" 0-100 scale so every tab reads the same way (dark = always
-  // better), regardless of whether the underlying indicator is
-  // high_is_good or low_is_good.
-  function orientedValue(value, direction) {
-    if (value === null || value === undefined) return null;
-    return direction === "high_is_good" ? value : 100 - value;
-  }
-
   // Blends a hex color toward white by `amount` (0 = unchanged, 1 = white) —
   // used to get a lighter tint of the active domain's own color for the
   // sub-indicator bars, so the bar chart's colors match the tab/choropleth
@@ -426,7 +420,13 @@
     const row = indicatorData[feature.properties.nuts3];
     const domain = domainsByKey[activeDomainKey];
     const raw = row ? row[activeDomainKey] : null;
-    return { ...STROKE_DEFAULT, fillColor: valueToColor(orientedValue(raw, domain.direction), domain.ramp) };
+    // Colour follows the raw 0-100 value directly (light = low, dark = high)
+    // — same convention as the bar chart's x-axis and the legend's numeric
+    // scale, always ascending left-to-right regardless of the domain's own
+    // direction. For a low_is_good domain, dark therefore means "worse", not
+    // "better" — the direction hint next to the domain title is what tells
+    // the reader which way is good for that particular tab.
+    return { ...STROKE_DEFAULT, fillColor: valueToColor(raw, domain.ramp) };
   }
 
   // Shared click/hover wiring for every region polygon, whether it's on the
@@ -469,24 +469,30 @@
     if (selectedLayer) selectedLayer.setStyle(STROKE_SELECTED);
   }
 
+  // Colour (map and legend) follows the raw value directly, always
+  // ascending — it no longer signals which end is "good" for a given
+  // domain, so this is the one place that phrasing comes from, reused by
+  // both the legend and the panel heading.
+  function directionHint(domain) {
+    return domain.direction === "high_is_good" ? "higher is better" : "lower is better";
+  }
+
   function updateChoroplethLegend() {
     const domain = domainsByKey[activeDomainKey];
     const title = document.getElementById("choroplethLegendTitle");
     title.textContent = domain.shortLabel;
     title.style.color = domain.color;
+    document.getElementById("choroplethLegendDirection").textContent = `(${directionHint(domain)})`;
     document.getElementById("choroplethGradientBar").style.background =
       `linear-gradient(to right, ${valueToColor(0, domain.ramp)}, ${valueToColor(100, domain.ramp)})`;
 
-    // The bar always runs light->dark = oriented 0->100 = worse->better.
-    // The *raw* value at each end depends on the domain's own direction:
-    // for high_is_good, oriented === raw, so light end = raw 0; for
-    // low_is_good, oriented = 100 - raw, so light end = raw 100 instead —
-    // the axis has to flip to keep showing the real indicator value, not
-    // just repeat "0, 50, 100" regardless of what the colour actually means.
-    const [leftRaw, rightRaw] = domain.direction === "high_is_good" ? [0, 100] : [100, 0];
+    // Always ascending 0 -> 100 left to right, same convention on every tab
+    // and matching the bar chart's own x-axis — the colour follows the raw
+    // value directly now (see choroplethStyle), so the axis never needs to
+    // flip per domain the way it used to.
     const scale = document.getElementById("choroplethGradientScale");
     scale.innerHTML = "";
-    for (const v of [leftRaw, 50, rightRaw]) {
+    for (const v of [0, 50, 100]) {
       const span = document.createElement("span");
       span.textContent = v;
       scale.appendChild(span);
@@ -682,7 +688,7 @@
     }
     const domain = domainsByKey[key];
     const heading = document.getElementById("domainHeading");
-    heading.textContent = domain.shortLabel;
+    heading.textContent = `${domain.shortLabel} (${directionHint(domain)})`;
     heading.style.color = domain.color;
     document.getElementById("domainDesc").textContent = domain.label;
     updateChoroplethLegend();
