@@ -55,9 +55,15 @@
      an absence of value") don't get read as one continuous scale. */
   #choroplethLegend { position: absolute; z-index: 1000; bottom: 10px; left: 10px; background: white;
                        padding: 6px 10px; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,.3);
-                       font-size: 11px; color: #52514e; }
+                       font-size: 11px; color: #52514e; min-width: 150px; max-width: 260px;
+                       box-sizing: border-box; }
   #choroplethLegend #choroplethLegendDirection { font-size: 10px; color: #898781; margin-top: -2px; }
-  #choroplethLegend .gradientBar { width: 140px; height: 10px; border-radius: 2px; margin: 3px 0 1px; }
+  /* 100% instead of a fixed px width: the box itself shrink-to-fits its
+     widest line (title/direction text), which varies a lot by language —
+     a fixed-width bar stayed short whenever a translation made the box
+     wider than that fixed width, instead of always spanning it. */
+  #choroplethLegend .gradientBar { width: 100%; height: 10px; border-radius: 2px; margin: 3px 0 1px;
+                                    box-sizing: border-box; }
   #choroplethLegend .gradientScale { display: flex; justify-content: space-between; font-size: 10px;
                                       color: #898781; }
   #choroplethLegend .noDataRow { display: flex; align-items: center; gap: 5px; margin-top: 5px;
@@ -119,8 +125,7 @@
     .outermostBox .obMap { height: 38px; }
     .outermostBox.obWide .obMap { height: 48px; }
 
-    #choroplethLegend { font-size: 13px; }
-    #choroplethLegend .gradientBar { width: 110px; }
+    #choroplethLegend { font-size: 13px; max-width: 220px; }
 
     h2 { font-size: 19px; }
     #domainHeading { font-size: 17px; }
