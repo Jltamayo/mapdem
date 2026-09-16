@@ -206,30 +206,87 @@
   // — Hauts-de-France is already covered by fr. The unnamed 7th pilot is deliberately
   // not included yet (see CLAUDE.md); add it the same way once confirmed.
   //
-  // Catalan has no Unicode flag emoji of its own (no ISO 3166-2 tag sequence is
-  // registered for it the way Scotland/Wales/England have), and re-using Spain's
-  // flag for it would be actively misleading given ca and es are offered as two
-  // distinct options here — so its flag is drawn as an inline SVG of the Senyera
-  // (Catalonia's official flag: 4 red bars on gold) instead of an emoji character.
-  const CATALAN_FLAG_SVG =
-    '<svg viewBox="0 0 900 600" width="16" height="11" style="vertical-align:middle" role="img" aria-label="Senyera">' +
+  // All flags are drawn as inline SVG, not emoji characters — flag emoji
+  // (regional-indicator letter pairs) depend on the OS/browser having a
+  // matching glyph in its emoji font, and Windows historically hasn't
+  // shipped one for most country flags (a long-standing Microsoft policy
+  // choice, only partly reversed in recent Windows 11 updates), so they can
+  // render blank or as a boxed country code instead of a flag. An SVG
+  // renders identically everywhere regardless of OS emoji-font support —
+  // same fix already applied to the PDF export button's printer icon.
+  // Catalan additionally has no flag emoji of its own at all (no ISO 3166-2
+  // tag sequence is registered for it the way Scotland/Wales/England have),
+  // and re-using Spain's flag for it would be actively misleading given ca
+  // and es are offered as two distinct options — its SVG is the Senyera
+  // (Catalonia's official flag: 4 red bars on gold), not Spain's.
+  function flagSvg(viewBox, widthAttr, heightAttr, label, innerMarkup) {
+    return `<svg viewBox="${viewBox}" width="${widthAttr}" height="${heightAttr}" ` +
+      `style="vertical-align:middle" role="img" aria-label="${label}">${innerMarkup}</svg>`;
+  }
+
+  const UK_FLAG_SVG = flagSvg("0 0 60 30", 18, 9, "United Kingdom",
+    '<rect width="60" height="30" fill="#012169"/>' +
+    '<path d="M0,0 L60,30 M60,0 L0,30" stroke="#FFFFFF" stroke-width="6"/>' +
+    '<path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" stroke-width="2"/>' +
+    '<path d="M30,0 V30 M0,15 H60" stroke="#FFFFFF" stroke-width="10"/>' +
+    '<path d="M30,0 V30 M0,15 H60" stroke="#C8102E" stroke-width="6"/>');
+
+  const FR_FLAG_SVG = flagSvg("0 0 900 600", 16, 11, "France",
+    '<rect width="300" height="600" fill="#0055A4"/>' +
+    '<rect x="300" width="300" height="600" fill="#FFFFFF"/>' +
+    '<rect x="600" width="300" height="600" fill="#EF4135"/>');
+
+  const DE_FLAG_SVG = flagSvg("0 0 900 600", 16, 11, "Germany",
+    '<rect width="900" height="200" fill="#000000"/>' +
+    '<rect y="200" width="900" height="200" fill="#DD0000"/>' +
+    '<rect y="400" width="900" height="200" fill="#FFCE00"/>');
+
+  const RO_FLAG_SVG = flagSvg("0 0 900 600", 16, 11, "Romania",
+    '<rect width="300" height="600" fill="#002B7F"/>' +
+    '<rect x="300" width="300" height="600" fill="#FCD116"/>' +
+    '<rect x="600" width="300" height="600" fill="#CE1126"/>');
+
+  const BE_FLAG_SVG = flagSvg("0 0 900 600", 16, 11, "Belgium",
+    '<rect width="300" height="600" fill="#000000"/>' +
+    '<rect x="300" width="300" height="600" fill="#FDDA24"/>' +
+    '<rect x="600" width="300" height="600" fill="#EF3340"/>');
+
+  const EL_FLAG_SVG = flagSvg("0 0 900 600", 16, 11, "Greece",
+    '<rect width="900" height="600" fill="#0D5EAF"/>' +
+    '<rect y="66.7" width="900" height="66.7" fill="#FFFFFF"/>' +
+    '<rect y="200" width="900" height="66.7" fill="#FFFFFF"/>' +
+    '<rect y="333.3" width="900" height="66.7" fill="#FFFFFF"/>' +
+    '<rect y="466.7" width="900" height="66.7" fill="#FFFFFF"/>' +
+    '<rect width="333.3" height="333.3" fill="#0D5EAF"/>' +
+    '<rect x="133.3" width="66.7" height="333.3" fill="#FFFFFF"/>' +
+    '<rect y="133.3" width="333.3" height="66.7" fill="#FFFFFF"/>');
+
+  const SK_FLAG_SVG = flagSvg("0 0 900 600", 16, 11, "Slovakia",
+    '<rect width="900" height="200" fill="#FFFFFF"/>' +
+    '<rect y="200" width="900" height="200" fill="#0B4EA2"/>' +
+    '<rect y="400" width="900" height="200" fill="#EE1C25"/>');
+
+  const CATALAN_FLAG_SVG = flagSvg("0 0 900 600", 16, 11, "Senyera",
     '<rect width="900" height="600" fill="#FCDD09"/>' +
     '<rect y="66.7" width="900" height="66.7" fill="#DA121A"/>' +
     '<rect y="200" width="900" height="66.7" fill="#DA121A"/>' +
     '<rect y="333.3" width="900" height="66.7" fill="#DA121A"/>' +
-    '<rect y="466.7" width="900" height="66.7" fill="#DA121A"/>' +
-    "</svg>";
+    '<rect y="466.7" width="900" height="66.7" fill="#DA121A"/>');
+
+  const ES_FLAG_SVG = flagSvg("0 0 900 600", 16, 11, "Spain",
+    '<rect width="900" height="600" fill="#AA151B"/>' +
+    '<rect y="150" width="900" height="300" fill="#F1BF00"/>');
 
   const LANGUAGES = [
-    { code: "en", flag: "🇬🇧", name: "English" },
-    { code: "fr", flag: "🇫🇷", name: "Français" },
-    { code: "de", flag: "🇩🇪", name: "Deutsch" },
-    { code: "ro", flag: "🇷🇴", name: "Română" },
-    { code: "nl", flag: "🇧🇪", name: "Nederlands" },
-    { code: "el", flag: "🇬🇷", name: "Ελληνικά" },
-    { code: "sk", flag: "🇸🇰", name: "Slovenčina" },
+    { code: "en", flagSvg: UK_FLAG_SVG, name: "English" },
+    { code: "fr", flagSvg: FR_FLAG_SVG, name: "Français" },
+    { code: "de", flagSvg: DE_FLAG_SVG, name: "Deutsch" },
+    { code: "ro", flagSvg: RO_FLAG_SVG, name: "Română" },
+    { code: "nl", flagSvg: BE_FLAG_SVG, name: "Nederlands" },
+    { code: "el", flagSvg: EL_FLAG_SVG, name: "Ελληνικά" },
+    { code: "sk", flagSvg: SK_FLAG_SVG, name: "Slovenčina" },
     { code: "ca", flagSvg: CATALAN_FLAG_SVG, name: "Català" },
-    { code: "es", flag: "🇪🇸", name: "Español" },
+    { code: "es", flagSvg: ES_FLAG_SVG, name: "Español" },
   ];
   let currentLang = "en";
 
