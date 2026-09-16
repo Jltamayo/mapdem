@@ -569,13 +569,14 @@
     });
   }
 
-  // A small, static (no pan/zoom/drag) Leaflet map showing just the given
-  // features, framed to their own bounds — one inset box.
+  // A small Leaflet map showing just the given features, initially framed to
+  // their own bounds — one inset box. Pan/zoom are fully enabled (mouse
+  // drag, wheel, pinch, double-click, keyboard) at the user's request, same
+  // as the main map; no on-screen zoom control though, there's no room for
+  // one at this size (62-78px tall) — scroll/pinch/double-click cover it.
   function buildInsetMap(elId, features) {
     const miniMap = L.map(elId, {
-      attributionControl: false, zoomControl: false, dragging: false,
-      scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false,
-      touchZoom: false, keyboard: false, tap: false,
+      attributionControl: false, zoomControl: false,
     });
     addBasemap(miniMap); // attribution already shown once, on the main map's control
     const layer = L.geoJSON({ type: "FeatureCollection", features }, {
