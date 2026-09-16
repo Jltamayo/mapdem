@@ -741,6 +741,23 @@
 
   let pdfLinkEl = null;
 
+  // A printer icon drawn as inline SVG rather than an emoji character.
+  // U+1F5B6 (the previous icon) sits in the same Unicode block as the
+  // standard printer emoji (U+1F5A8) but was never actually adopted into
+  // any vendor's emoji font — no colour glyph exists for it in Apple/
+  // Google/Microsoft's emoji sets, so phones render Unicode's generic
+  // "missing glyph" box (commonly an X in a box) instead of a printer
+  // symbol. An SVG renders identically everywhere, sidestepping emoji-font
+  // support entirely.
+  const PDF_ICON_SVG =
+    '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#333333" ' +
+    'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ' +
+    'style="vertical-align:middle" aria-hidden="true">' +
+    '<polyline points="6 9 6 2 18 2 18 9"/>' +
+    '<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>' +
+    '<rect x="6" y="14" width="12" height="8"/>' +
+    "</svg>";
+
   const ExportPdfControl = L.Control.extend({
     options: { position: "topleft" },
     onAdd() {
@@ -750,28 +767,27 @@
       link.href = "#";
       link.title = t("pdfButtonTitle");
       link.setAttribute("role", "button");
-      link.textContent = "\u{1F5B6}"; // printer emoji, no extra icon asset needed
+      link.innerHTML = PDF_ICON_SVG;
       // Match the layers-switcher button's own size (44x44, Leaflet's
       // built-in .leaflet-control-layers-toggle default) instead of the
       // smaller 30x30 a plain .leaflet-bar button gets by default.
       link.style.width = "44px";
       link.style.height = "44px";
       link.style.lineHeight = "44px";
-      link.style.fontSize = "22px";
       L.DomEvent.disableClickPropagation(container);
       L.DomEvent.on(link, "click", (e) => {
         L.DomEvent.preventDefault(e);
         if (link.dataset.busy) return; // ignore repeat clicks while exporting
         link.dataset.busy = "1";
-        const original = link.textContent;
-        link.textContent = "…";
+        const original = link.innerHTML;
+        link.innerHTML = "…";
         exportToPdf()
           .catch((err) => {
             console.error("PDF export failed:", err);
             alert("Could not generate the PDF — see the browser console for details.");
           })
           .finally(() => {
-            link.textContent = original;
+            link.innerHTML = original;
             delete link.dataset.busy;
           });
       });
