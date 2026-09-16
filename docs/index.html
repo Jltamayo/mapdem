@@ -43,12 +43,21 @@
   #refLegend .swatch { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
   #refCaption { font-size: 11px; color: #898781; margin-top: 6px; }
 
-  /* Choropleth gradient legend, bottom-left of the map. */
+  /* Choropleth legend, bottom-left of the map — two sub-legends: the colour
+     scale (with a real 0-100 numeric axis, direction-corrected per domain)
+     and, separately, what grey means (no data), so the two encodings
+     ("this is a value" vs. "this is an absence of value") don't get read
+     as one continuous scale. */
   #choroplethLegend { position: absolute; z-index: 1000; bottom: 10px; left: 10px; background: white;
                        padding: 6px 10px; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,.3);
                        font-size: 11px; color: #52514e; }
-  #choroplethLegend .gradientBar { width: 140px; height: 10px; border-radius: 2px; margin: 3px 0; }
-  #choroplethLegend .gradientLabels { display: flex; justify-content: space-between; }
+  #choroplethLegend .gradientBar { width: 140px; height: 10px; border-radius: 2px; margin: 3px 0 1px; }
+  #choroplethLegend .gradientScale { display: flex; justify-content: space-between; font-size: 10px;
+                                      color: #898781; }
+  #choroplethLegend .noDataRow { display: flex; align-items: center; gap: 5px; margin-top: 5px;
+                                  padding-top: 5px; border-top: 1px solid #eee; }
+  #choroplethLegend .noDataSwatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px;
+                                     background: #dddddd; border: 1px solid #bbb; }
 
   /* Outermost-regions inset — mirrors the standard EU-map convention (e.g.
      Eurostat's own reference maps): each outermost region gets its own
@@ -74,9 +83,10 @@
     <div id="banner">Click a region — map and chart stay in sync (real NUTS3 boundaries, GISCO 2024; indicator values are still synthetic)</div>
     <div id="map" style="height:100%"></div>
     <div id="choroplethLegend">
-      <div id="choroplethLegendTitle">Worse → better</div>
+      <div id="choroplethLegendTitle"></div>
       <div class="gradientBar" id="choroplethGradientBar"></div>
-      <div class="gradientLabels"><span>Worse</span><span>Better</span><span>No data</span></div>
+      <div class="gradientScale" id="choroplethGradientScale"></div>
+      <div class="noDataRow"><span class="noDataSwatch"></span><span>No data</span></div>
     </div>
     <div id="outermostInset">
       <div class="outermostBox obWide"><div class="obLabel">Canarias</div><div class="obMap" id="ob_canarias"></div></div>
@@ -466,6 +476,21 @@
     title.style.color = domain.color;
     document.getElementById("choroplethGradientBar").style.background =
       `linear-gradient(to right, ${valueToColor(0, domain.ramp)}, ${valueToColor(100, domain.ramp)})`;
+
+    // The bar always runs light->dark = oriented 0->100 = worse->better.
+    // The *raw* value at each end depends on the domain's own direction:
+    // for high_is_good, oriented === raw, so light end = raw 0; for
+    // low_is_good, oriented = 100 - raw, so light end = raw 100 instead —
+    // the axis has to flip to keep showing the real indicator value, not
+    // just repeat "0, 50, 100" regardless of what the colour actually means.
+    const [leftRaw, rightRaw] = domain.direction === "high_is_good" ? [0, 100] : [100, 0];
+    const scale = document.getElementById("choroplethGradientScale");
+    scale.innerHTML = "";
+    for (const v of [leftRaw, 50, rightRaw]) {
+      const span = document.createElement("span");
+      span.textContent = v;
+      scale.appendChild(span);
+    }
   }
 
   // EU outermost regions (Art. 349 TFEU "RUP"/OMR) — thousands of km from
@@ -555,7 +580,14 @@
           // education/transport") — without wrapping, Chart.js right-aligns
           // the tick label against the axis and lets the start of the text
           // run off the left edge of the canvas instead of wrapping it.
-          y: { ticks: { callback: (_value, i) => wrapLabel(labels[i], 26) } },
+          // Bold just the domain row (rows[0]) so it reads as the "parent"
+          // of the sub-indicator rows below it, not just another row.
+          y: {
+            ticks: {
+              callback: (_value, i) => wrapLabel(labels[i], 26),
+              font: (ctx) => ({ weight: rows[ctx.index] && rows[ctx.index].isDomain ? "bold" : "normal" }),
+            },
+          },
         },
         plugins: {
           legend: { display: false },
