@@ -34,7 +34,10 @@
   #panelInner { padding: 16px; box-sizing: border-box; border-left: 1px solid #ddd; }
   #banner { position: absolute; z-index: 1000; top: 10px; left: 50px; right: 250px; background: white;
             padding: 6px 12px; border-radius: 4px; font-size: 13px; box-shadow: 0 1px 4px rgba(0,0,0,.3);
-            box-sizing: border-box; }
+            box-sizing: border-box; transition: right 0.25s ease; }
+  /* Keeps clear of the outermost-regions inset when it's expanded (230px ->
+     460px wide) — toggled in lockstep with #outermostInset.expanded by JS. */
+  #banner.insetExpanded { right: 480px; }
   h2 { margin: 0 0 6px; font-size: 15px; color: #312E81; }
   #domainHeading { font-size: 15px; font-weight: bold; color: #312E81; margin-bottom: 2px; }
   #domainDesc { font-size: 12px; color: #898781; margin-bottom: 8px; }
@@ -77,15 +80,28 @@
      main map's zoom/bounds to fit territories thousands of km from the
      mainland. */
   #outermostInset { position: absolute; z-index: 1000; top: 10px; right: 10px;
-                     width: 230px; display: flex; flex-direction: column; gap: 4px; }
+                     width: 230px; display: flex; flex-direction: column; gap: 4px;
+                     transition: width 0.25s ease; }
+  /* Expanded state, toggled by #outermostExpandToggle: all 8 boxes grow
+     together in one action, rather than one at a time — each mini-map's own
+     pan/zoom already works, but the fixed-size frame around it left no room
+     to see the result. */
+  #outermostInset.expanded { width: 460px; }
+  #outermostExpandToggle { align-self: flex-end; width: 22px; height: 22px; padding: 0;
+                            display: flex; align-items: center; justify-content: center;
+                            background: white; border: 1px solid #999; border-radius: 2px;
+                            box-shadow: 0 1px 4px rgba(0,0,0,.2); cursor: pointer; }
+  #outermostExpandToggle:hover { background: #f5f5f5; }
   .outermostRow { display: flex; gap: 4px; }
   .outermostBox { background: white; border: 1px solid #999; box-shadow: 0 1px 4px rgba(0,0,0,.2);
                    display: flex; flex-direction: column; flex: 1; min-width: 0; }
   .outermostBox .obLabel { font-size: 10px; font-weight: bold; color: #312E81;
                             padding: 2px 5px; border-bottom: 1px solid #eee; white-space: nowrap;
                             overflow: hidden; text-overflow: ellipsis; }
-  .outermostBox .obMap { height: 62px; }
+  .outermostBox .obMap { height: 62px; transition: height 0.25s ease; }
   .outermostBox.obWide .obMap { height: 78px; }
+  #outermostInset.expanded .outermostBox .obMap { height: 130px; }
+  #outermostInset.expanded .outermostBox.obWide .obMap { height: 160px; }
 
   /* Language switcher — first thing in the text panel, above the title, so
      it reads as a persistent status bar rather than a setting buried in
@@ -120,10 +136,14 @@
     #panelInner { border-left: none; border-top: 1px solid #ddd; }
 
     #banner { left: 50px; right: 150px; font-size: 13px; }
+    #banner.insetExpanded { right: min(92vw, 460px); }
     #outermostInset { width: 130px; }
+    #outermostInset.expanded { width: min(92vw, 460px); }
     .outermostBox .obLabel { font-size: 9px; }
     .outermostBox .obMap { height: 38px; }
     .outermostBox.obWide .obMap { height: 48px; }
+    #outermostInset.expanded .outermostBox .obMap { height: 90px; }
+    #outermostInset.expanded .outermostBox.obWide .obMap { height: 110px; }
 
     #choroplethLegend { font-size: 13px; max-width: 220px; }
 
@@ -408,6 +428,25 @@
       sk: "Exportovať mapu (+ vybraný región) ako PDF",
       ca: "Exporta el mapa (+ regió seleccionada) a PDF", es: "Exportar el mapa (+ región seleccionada) a PDF",
     },
+    outermostExpandTitle: {
+      en: "Enlarge all overseas-region maps", fr: "Agrandir toutes les cartes des régions d'outre-mer",
+      de: "Alle Karten der Übersee-Regionen vergrößern", ro: "Mărește toate hărțile regiunilor de peste mări",
+      nl: "Alle kaarten van de overzeese gebieden vergroten",
+      el: "Μεγέθυνση όλων των χαρτών των υπερπόντιων περιοχών",
+      sk: "Zväčšiť všetky mapy zámorských regiónov",
+      ca: "Amplia tots els mapes de les regions ultraperifèriques",
+      es: "Ampliar todos los mapas de las regiones ultraperiféricas",
+    },
+    outermostCollapseTitle: {
+      en: "Shrink overseas-region maps back", fr: "Réduire à nouveau les cartes des régions d'outre-mer",
+      de: "Karten der Übersee-Regionen wieder verkleinern",
+      ro: "Micșorează la loc hărțile regiunilor de peste mări",
+      nl: "Kaarten van de overzeese gebieden weer verkleinen",
+      el: "Σμίκρυνση των χαρτών των υπερπόντιων περιοχών",
+      sk: "Zmenšiť mapy zámorských regiónov späť",
+      ca: "Torna a reduir els mapes de les regions ultraperifèriques",
+      es: "Reducir de nuevo los mapas de las regiones ultraperiféricas",
+    },
   };
 
   // Looks up `key` in UI_STRINGS for the current language (falling back to
@@ -477,6 +516,7 @@
     const legendNoData = document.getElementById("legendNoDataLabel");
     if (legendNoData) legendNoData.textContent = t("legendNoData");
     if (pdfLinkEl) pdfLinkEl.title = t("pdfButtonTitle");
+    updateOutermostExpandToggle();
     updateLangSwitcherUI();
     if (domainOrder.length) {
       buildDomainTabs();
@@ -914,6 +954,59 @@
     return miniMap;
   }
 
+  // A single toggle that enlarges all 8 outermost-region boxes together (not
+  // one at a time) — each mini-map's own pan/zoom already works, but their
+  // fixed-size frame left no real room to use it. Icons are inline SVG for
+  // the same reason as the flags/PDF button: no dependency on the OS having
+  // a matching emoji glyph.
+  const EXPAND_ICON_SVG =
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#333333" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>' +
+    '<line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>' +
+    "</svg>";
+  const COLLAPSE_ICON_SVG =
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#333333" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>' +
+    '<line x1="14" y1="10" x2="21" y2="3"/><line x1="10" y1="14" x2="3" y2="21"/>' +
+    "</svg>";
+  let outermostExpanded = false;
+
+  function buildOutermostExpandToggle() {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = "outermostExpandToggle";
+    btn.addEventListener("click", toggleOutermostExpanded);
+    document.getElementById("outermostInset").prepend(btn);
+    updateOutermostExpandToggle();
+  }
+
+  function updateOutermostExpandToggle() {
+    const btn = document.getElementById("outermostExpandToggle");
+    if (!btn) return;
+    btn.innerHTML = outermostExpanded ? COLLAPSE_ICON_SVG : EXPAND_ICON_SVG;
+    btn.title = t(outermostExpanded ? "outermostCollapseTitle" : "outermostExpandTitle");
+  }
+
+  function toggleOutermostExpanded() {
+    outermostExpanded = !outermostExpanded;
+    document.getElementById("outermostInset").classList.toggle("expanded", outermostExpanded);
+    document.getElementById("banner").classList.toggle("insetExpanded", outermostExpanded);
+    updateOutermostExpandToggle();
+    // Leaflet doesn't notice its container's CSS size changing on its own —
+    // invalidateSize() re-measures it, but only after the width/height
+    // transition has actually finished, or it would capture a half-resized
+    // value. Re-fitting bounds afterwards makes the extra room actually
+    // show more detail instead of just empty padding around the old crop.
+    setTimeout(() => {
+      for (const { map, layer } of insetMaps) {
+        map.invalidateSize();
+        map.fitBounds(layer.getBounds(), { padding: [4, 4] });
+      }
+    }, 260);
+  }
+
   // Restyle every polygon (main map + all insets) for the currently active
   // tab's domain, re-applying the selection highlight afterwards since a
   // full restyle would otherwise reset it to the default stroke.
@@ -1174,6 +1267,7 @@
   // fetched data, so it's translated immediately — no flash of the wrong
   // language while the fetch below is still in flight.
   buildLangSwitcher();
+  buildOutermostExpandToggle();
   applyLanguage(currentLang);
 
   Promise.all([
