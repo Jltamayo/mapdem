@@ -8,15 +8,18 @@
   html, body { height: 100%; margin: 0; font-family: -apple-system, Arial, sans-serif; }
   body { display: flex; flex-direction: column; }
 
-  /* Each tab's underline/text color is set inline per-button (--tab-color,
-     from the domain's own hue) so the tab bar doubles as a color key —
-     visible even before clicking, not just once a tab is active. */
-  #domainTabs { flex: 0 0 auto; display: flex; background: #f3f4f6; border-bottom: 1px solid #ccc; }
-  #domainTabs button { flex: 1; padding: 10px 6px; border: none; background: none; cursor: pointer;
-                        font-size: 13px; color: #52514e; font-family: inherit;
-                        border-bottom: 3px solid color-mix(in srgb, var(--tab-color) 35%, transparent); }
-  #domainTabs button:hover { background: #e8e9eb; }
-  #domainTabs button.active { border-bottom-color: var(--tab-color); color: var(--tab-color); font-weight: bold; }
+  /* Each tab's background is set inline per-button (--tab-bg, the dark end
+     of that domain's own ramp) so the tab bar doubles as a color key —
+     visible even before clicking, not just once a tab is active. White
+     bold text throughout (the dark ramp end always clears contrast for
+     white text, same way the choropleth's dark end does). */
+  #domainTabs { flex: 0 0 auto; display: flex; border-bottom: 1px solid #ccc; }
+  #domainTabs button { flex: 1; padding: 10px 6px; border: none; cursor: pointer;
+                        font-size: 13px; font-family: inherit;
+                        background: var(--tab-bg); color: #ffffff; font-weight: bold;
+                        border-bottom: 3px solid transparent; }
+  #domainTabs button:hover { filter: brightness(1.12); }
+  #domainTabs button.active { border-bottom-color: #ffffff; }
 
   #app { display: flex; flex: 1 1 auto; min-height: 0; }
   #mapWrap { flex: 2 1 0; position: relative; min-width: 0; }
@@ -687,6 +690,7 @@
       btn.textContent = domain.shortLabel;
       btn.id = "tab_" + key;
       btn.style.setProperty("--tab-color", domain.color);
+      btn.style.setProperty("--tab-bg", domain.ramp.dark);
       btn.addEventListener("click", () => selectDomain(key));
       container.appendChild(btn);
     }
