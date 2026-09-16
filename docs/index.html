@@ -48,6 +48,18 @@
   #refLegend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; font-size: 12px; color: #52514e; }
   #refLegend label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
   #refLegend .swatch { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
+  /* Plain-language narrative of the same values already shown in the chart
+     above — not decorative copy, but a real accessibility aid: the chart is
+     a <canvas>, invisible to screen readers, so this is the only route to
+     the same information for a blind/low-vision reader (linked to the
+     canvas via aria-describedby, set in buildChart()). Framed and coloured
+     like a quiet callout, not a heading-weight section, since it restates
+     rather than adds new information for sighted readers. */
+  #storyPanel { margin-top: 14px; padding: 10px 12px; background: #f7f7f5; border-left: 3px solid #ccc;
+                border-radius: 0 4px 4px 0; }
+  #storyPanel h3 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em;
+                    color: #898781; font-weight: bold; }
+  #storyPanel p { margin: 0; font-size: 13px; line-height: 1.5; color: #333; }
   #refCaption { font-size: 11px; color: #898781; margin-top: 6px; }
 
   /* Choropleth legend, bottom-left of the map — two sub-legends: the colour
@@ -154,6 +166,7 @@
     #regionHint { font-size: 14px; }
     .no-data-note { font-size: 14px; }
     #refLegend { font-size: 14px; }
+    #storyPanel p { font-size: 14px; }
     #refCaption { font-size: 12px; }
     .langBtn { font-size: 14px; padding: 6px 10px; }
   }
@@ -198,9 +211,13 @@
       <div id="domainDesc"></div>
       <div id="regionTitle">No region selected</div>
       <div id="regionHint">Click any region on the map to see its indicator breakdown here. Hover previews the region without changing the chart.</div>
-      <canvas id="chart" height="230"></canvas>
+      <canvas id="chart" height="230" role="img"></canvas>
       <div id="missingNote" class="no-data-note"></div>
       <div id="refLegend"></div>
+      <div id="storyPanel">
+        <h3 id="storyHeading">In plain words</h3>
+        <p id="storyText" aria-live="polite">Select a region on the map to see a plain-language summary here.</p>
+      </div>
       <div id="refCaption">Reference ticks: simple (unweighted) mean across sibling NUTS3 regions
         at each level, not population-weighted. First row is the domain indicator; the rows below
         it, each prefixed "↳", are the sub-indicators it's built from.</div>
@@ -447,6 +464,91 @@
       ca: "Torna a reduir els mapes de les regions ultraperifèriques",
       es: "Reducir de nuevo los mapas de las regiones ultraperiféricas",
     },
+    // Plain-language narrative panel (see #storyPanel) — a real accessibility
+    // aid, not decorative copy: the chart above it is a <canvas>, invisible
+    // to screen readers, so these sentences are the only equivalent route to
+    // the same information for a blind/low-vision reader. Values are always
+    // interpolated from the same numbers already shown in the chart/legend,
+    // never invented — see buildStory().
+    storyHeading: {
+      en: "In plain words", fr: "En clair", de: "In einfachen Worten", ro: "Pe scurt",
+      nl: "In gewone taal", el: "Με απλά λόγια", sk: "Jednoducho povedané",
+      ca: "En poques paraules", es: "En pocas palabras",
+    },
+    storyNoRegion: {
+      en: "Select a region on the map to see a plain-language summary here.",
+      fr: "Sélectionnez une région sur la carte pour voir ici un résumé en langage clair.",
+      de: "Wählen Sie eine Region auf der Karte, um hier eine allgemeinverständliche Zusammenfassung zu sehen.",
+      ro: "Selectați o regiune pe hartă pentru a vedea aici un rezumat în limbaj simplu.",
+      nl: "Selecteer een regio op de kaart om hier een samenvatting in gewone taal te zien.",
+      el: "Επιλέξτε μια περιοχή στον χάρτη για να δείτε εδώ μια περίληψη σε απλή γλώσσα.",
+      sk: "Vyberte región na mape a zobrazí sa tu zhrnutie v jednoduchom jazyku.",
+      ca: "Selecciona una regió al mapa per veure aquí un resum en llenguatge planer.",
+      es: "Selecciona una región en el mapa para ver aquí un resumen en lenguaje sencillo.",
+    },
+    storyIntro: {
+      en: "{region}'s {domain} is {value} out of 100 ({direction}) — {diff} points {aboveBelow} the EU average of {euValue}.",
+      fr: "Pour {region}, {domain} est de {value} sur 100 ({direction}) — soit {diff} points {aboveBelow} la moyenne UE de {euValue}.",
+      de: "{domain} liegt für {region} bei {value} von 100 ({direction}) — das sind {diff} Punkte {aboveBelow} dem EU-Durchschnitt von {euValue}.",
+      ro: "Pentru {region}, {domain} este {value} din 100 ({direction}) — cu {diff} puncte {aboveBelow} media UE de {euValue}.",
+      nl: "Voor {region} is {domain} {value} van de 100 ({direction}) — dat is {diff} punten {aboveBelow} het EU-gemiddelde van {euValue}.",
+      el: "Για την {region}, ο δείκτης {domain} είναι {value} στα 100 ({direction}) — δηλαδή {diff} μονάδες {aboveBelow} τον μέσο όρο της ΕΕ που είναι {euValue}.",
+      sk: "Pre {region} je hodnota {domain} {value} zo 100 ({direction}) — čo je o {diff} bodov {aboveBelow} priemer EÚ, ktorý je {euValue}.",
+      ca: "Per a {region}, {domain} és {value} sobre 100 ({direction}) — és a dir, {diff} punts {aboveBelow} la mitjana UE de {euValue}.",
+      es: "Para {region}, {domain} es {value} sobre 100 ({direction}) — es decir, {diff} puntos {aboveBelow} la media UE de {euValue}.",
+    },
+    storyIntroNoRef: {
+      en: "{region}'s {domain} is {value} out of 100 ({direction}).",
+      fr: "Pour {region}, {domain} est de {value} sur 100 ({direction}).",
+      de: "{domain} liegt für {region} bei {value} von 100 ({direction}).",
+      ro: "Pentru {region}, {domain} este {value} din 100 ({direction}).",
+      nl: "Voor {region} is {domain} {value} van de 100 ({direction}).",
+      el: "Για την {region}, ο δείκτης {domain} είναι {value} στα 100 ({direction}).",
+      sk: "Pre {region} je hodnota {domain} {value} zo 100 ({direction}).",
+      ca: "Per a {region}, {domain} és {value} sobre 100 ({direction}).",
+      es: "Para {region}, {domain} es {value} sobre 100 ({direction}).",
+    },
+    storyAbove: {
+      en: "above", fr: "au-dessus de", de: "über", ro: "peste", nl: "boven", el: "πάνω από",
+      sk: "nad", ca: "per sobre de", es: "por encima de",
+    },
+    storyBelow: {
+      en: "below", fr: "en dessous de", de: "unter", ro: "sub", nl: "onder", el: "κάτω από",
+      sk: "pod", ca: "per sota de", es: "por debajo de",
+    },
+    storyNoDomainData: {
+      en: "No data is available for {domain} in {region}.",
+      fr: "Aucune donnée disponible pour {domain} pour {region}.",
+      de: "Für {domain} liegen in {region} keine Daten vor.",
+      ro: "Nu există date pentru {domain} în {region}.",
+      nl: "Er zijn geen gegevens beschikbaar voor {domain} in {region}.",
+      el: "Δεν υπάρχουν διαθέσιμα δεδομένα για {domain} στην {region}.",
+      sk: "Pre {domain} nie sú v {region} k dispozícii žiadne údaje.",
+      ca: "No hi ha dades disponibles per a {domain} a {region}.",
+      es: "No hay datos disponibles para {domain} en {region}.",
+    },
+    storyBest: {
+      en: " Its strongest sub-indicator is {sub}, at {value}.",
+      fr: " Son sous-indicateur le plus fort est {sub}, avec {value}.",
+      de: " Der stärkste Teilindikator ist {sub} mit {value}.",
+      ro: " Cel mai puternic subindicator este {sub}, cu {value}.",
+      nl: " De sterkste subindicator is {sub}, met {value}.",
+      el: " Ο ισχυρότερος επιμέρους δείκτης είναι ο/η {sub}, με {value}.",
+      sk: " Najsilnejší čiastkový ukazovateľ je {sub}, s hodnotou {value}.",
+      ca: " El subindicador més fort és {sub}, amb {value}.",
+      es: " Su subindicador más fuerte es {sub}, con {value}.",
+    },
+    storyWorst: {
+      en: " Its weakest sub-indicator is {sub}, at {value}.",
+      fr: " Son sous-indicateur le plus faible est {sub}, avec {value}.",
+      de: " Der schwächste Teilindikator ist {sub} mit {value}.",
+      ro: " Cel mai slab subindicator este {sub}, cu {value}.",
+      nl: " De zwakste subindicator is {sub}, met {value}.",
+      el: " Ο ασθενέστερος επιμέρους δείκτης είναι ο/η {sub}, με {value}.",
+      sk: " Najslabší čiastkový ukazovateľ je {sub}, s hodnotou {value}.",
+      ca: " El subindicador més feble és {sub}, amb {value}.",
+      es: " Su subindicador más débil es {sub}, con {value}.",
+    },
   };
 
   // Looks up `key` in UI_STRINGS for the current language (falling back to
@@ -500,6 +602,7 @@
     } else {
       document.getElementById("regionTitle").textContent = t("noRegionSelected");
       document.getElementById("regionHint").textContent = t("regionHintDefault");
+      document.getElementById("storyText").textContent = t("storyNoRegion");
     }
   }
 
@@ -513,6 +616,7 @@
     document.getElementById("appTitle").textContent = t("appTitle");
     document.getElementById("banner").textContent = t("bannerText");
     document.getElementById("refCaption").textContent = t("refCaption");
+    document.getElementById("storyHeading").textContent = t("storyHeading");
     const legendNoData = document.getElementById("legendNoDataLabel");
     if (legendNoData) legendNoData.textContent = t("legendNoData");
     if (pdfLinkEl) pdfLinkEl.title = t("pdfButtonTitle");
@@ -1180,6 +1284,85 @@
     document.getElementById("missingNote").textContent = missing.length
       ? t("missingNoteTemplate", { list: missing.join(", ") })
       : "";
+
+    // The canvas has no text content of its own for a screen reader to
+    // read — aria-describedby points it at the plain-language narrative
+    // below, which is built from these same `rows`/`refValues`, not
+    // recomputed separately.
+    const canvasEl = document.getElementById("chart");
+    canvasEl.setAttribute("aria-label", `${pick(domainsByKey[activeDomainKey].shortLabel)} — ${codeAndName(row.nuts3)}`);
+    canvasEl.setAttribute("aria-describedby", "storyText");
+
+    buildStory(row, rows, refValues);
+  }
+
+  // Plain-language narrative of the values already shown in the chart above
+  // — a real accessibility aid (see #storyPanel's CSS comment), not
+  // decorative copy. Deliberately reuses `rows`/`refValues` computed by the
+  // caller instead of recalculating, so the two can never say different
+  // things about the same selection. "Best"/"worst" sub-indicator is ranked
+  // by its value oriented to the domain's own direction (a low_is_good
+  // domain's highest raw sub-value is its worst, not its best), matching
+  // the same orientation logic used when the domain score itself is
+  // averaged from its subs in generate_synthetic_data.py.
+  function buildStory(row, rows, refValues) {
+    const domain = domainsByKey[activeDomainKey];
+    const regionName = codeAndName(row.nuts3);
+    const domainRow = rows[0]; // always the domain itself, per activeRows()
+    const domainValue = row[domainRow.key];
+    const parts = [];
+
+    if (domainValue === null) {
+      parts.push(t("storyNoDomainData", { region: regionName, domain: domainRow.plainLabel }));
+    } else {
+      const euAvg = refValues.eu[0];
+      if (euAvg !== null && euAvg !== undefined && !Number.isNaN(euAvg)) {
+        const diff = domainValue - euAvg;
+        parts.push(t("storyIntro", {
+          region: regionName,
+          domain: domainRow.plainLabel,
+          value: domainValue.toFixed(1),
+          direction: directionHint(domain),
+          diff: Math.abs(diff).toFixed(1),
+          aboveBelow: diff >= 0 ? t("storyAbove") : t("storyBelow"),
+          euValue: euAvg.toFixed(1),
+        }));
+      } else {
+        parts.push(t("storyIntroNoRef", {
+          region: regionName, domain: domainRow.plainLabel,
+          value: domainValue.toFixed(1), direction: directionHint(domain),
+        }));
+      }
+
+      const subsWithData = domain.subs
+        .map((s) => {
+          const raw = row[s.key];
+          if (raw === null || raw === undefined) return null;
+          // Same "oriented" step generate_synthetic_data.py uses to average
+          // subs into the domain value (align each sub to the domain's own
+          // direction) — but oriented alone is NOT a "higher = better" scale:
+          // for a low_is_good domain, a *lower* oriented value is the better
+          // one (that's what makes the domain composite itself low = good).
+          // `goodness` flips that so "higher = better" always holds, purely
+          // for ranking sub-indicators here — it never touches what's shown
+          // on screen, which always stays the raw, un-oriented value.
+          const oriented = s.direction === domain.direction ? raw : 100 - raw;
+          const goodness = domain.direction === "low_is_good" ? 100 - oriented : oriented;
+          return { label: pick(s.label), raw, goodness };
+        })
+        .filter(Boolean);
+
+      if (subsWithData.length >= 2) {
+        const best = subsWithData.reduce((a, b) => (b.goodness > a.goodness ? b : a));
+        const worst = subsWithData.reduce((a, b) => (b.goodness < a.goodness ? b : a));
+        if (best.label !== worst.label) {
+          parts.push(t("storyBest", { sub: best.label, value: best.raw.toFixed(1) }));
+          parts.push(t("storyWorst", { sub: worst.label, value: worst.raw.toFixed(1) }));
+        }
+      }
+    }
+
+    document.getElementById("storyText").textContent = parts.join(" ");
   }
 
   function buildRefLegend() {
