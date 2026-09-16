@@ -130,6 +130,8 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script>
   // All data files live under this same published folder (docs/), which is
   // a hard requirement, not a style choice: GitHub Pages only serves files
@@ -396,7 +398,13 @@
 
   function makeBasemapLayer(name) {
     const b = BASEMAPS[name];
-    return L.tileLayer(b.url, { ...b.options, attribution: b.attribution });
+    // crossOrigin lets the browser's canvas API (used by the "export PDF"
+    // button, via html2canvas) actually read tile pixel data instead of
+    // treating the canvas as tainted. All 4 providers were checked to send
+    // Access-Control-Allow-Origin: * (2026-09-16) before turning this on —
+    // without that header, crossOrigin would make the browser refuse the
+    // tile images outright instead of just failing to export them.
+    return L.tileLayer(b.url, { ...b.options, attribution: b.attribution, crossOrigin: true });
   }
 
   // Single basemap, no switcher — used for the small static outermost-region
@@ -415,6 +423,69 @@
     layers[DEFAULT_BASEMAP].addTo(targetMap);
     L.control.layers(layers, null, { position: "topleft", collapsed: true }).addTo(targetMap);
   }
+
+  // --- PDF export: page 1 = the map as currently shown (choropleth, legend,
+  // outermost-region insets, whichever basemap is active), page 2 = the
+  // side panel (selected region's chart + reference lines), if a region is
+  // selected. Pure client-side (html2canvas renders the DOM to a canvas,
+  // jsPDF lays the canvases into a downloadable PDF) — no server involved,
+  // consistent with the rest of this static site.
+  async function captureElementToPdfPage(pdf, element, isFirstPage) {
+    const canvas = await html2canvas(element, { useCORS: true, backgroundColor: "#ffffff", scale: 2 });
+    const orientation = canvas.width >= canvas.height ? "landscape" : "portrait";
+    if (!isFirstPage) pdf.addPage("a4", orientation);
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = 10;
+    const ratio = Math.min((pageW - margin * 2) / canvas.width, (pageH - margin * 2) / canvas.height);
+    const w = canvas.width * ratio;
+    const h = canvas.height * ratio;
+    pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", (pageW - w) / 2, (pageH - h) / 2, w, h);
+  }
+
+  async function exportToPdf() {
+    const { jsPDF } = window.jspdf;
+    const mapEl = document.getElementById("mapWrap");
+    const firstOrientation = mapEl.offsetWidth >= mapEl.offsetHeight ? "landscape" : "portrait";
+    const pdf = new jsPDF({ orientation: firstOrientation, unit: "mm", format: "a4" });
+
+    await captureElementToPdfPage(pdf, mapEl, true);
+    if (currentRow) await captureElementToPdfPage(pdf, document.getElementById("panelInner"), false);
+
+    const regionPart = currentRow ? `_${currentRow.nuts3}` : "";
+    pdf.save(`mapdem_${activeDomainKey}${regionPart}.pdf`);
+  }
+
+  const ExportPdfControl = L.Control.extend({
+    options: { position: "topleft" },
+    onAdd() {
+      const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+      const link = L.DomUtil.create("a", "", container);
+      link.href = "#";
+      link.title = "Export map (+ selected region) as PDF";
+      link.setAttribute("role", "button");
+      link.textContent = "\u{1F5B6}"; // printer emoji, no extra icon asset needed
+      link.style.fontSize = "15px";
+      L.DomEvent.disableClickPropagation(container);
+      L.DomEvent.on(link, "click", (e) => {
+        L.DomEvent.preventDefault(e);
+        if (link.dataset.busy) return; // ignore repeat clicks while exporting
+        link.dataset.busy = "1";
+        const original = link.textContent;
+        link.textContent = "…";
+        exportToPdf()
+          .catch((err) => {
+            console.error("PDF export failed:", err);
+            alert("Could not generate the PDF — see the browser console for details.");
+          })
+          .finally(() => {
+            link.textContent = original;
+            delete link.dataset.busy;
+          });
+      });
+      return container;
+    },
+  });
 
   let map, geoLayer, selectedLayer;
   const insetMaps = [];
@@ -766,6 +837,7 @@
 
     map = L.map("map");
     addBasemapSwitcher(map);
+    new ExportPdfControl().addTo(map);
     geoLayer = L.geoJSON({ type: "FeatureCollection", features: mainFeatures }, {
       style: choroplethStyle,
       onEachFeature: wireFeatureInteractions,
