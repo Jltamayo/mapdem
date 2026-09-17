@@ -91,7 +91,14 @@
      small framed mini-map, stacked in a corner, rather than distorting the
      main map's zoom/bounds to fit territories thousands of km from the
      mainland. */
-  #outermostInset { position: absolute; z-index: 1000; top: 10px; right: 10px;
+  /* Toolbar sits ABOVE #outermostInset, as a sibling, not inside it — a
+     button placed inside the box it controls would disappear along with
+     the box the moment the "hide whole quadrant" toggle hides it, with no
+     way left on screen to bring it back. Always visible regardless of
+     #outermostInset's own hidden/expanded state. */
+  #outermostToolbar { position: absolute; z-index: 1001; top: 10px; right: 10px;
+                       display: flex; gap: 4px; }
+  #outermostInset { position: absolute; z-index: 1000; top: 38px; right: 10px;
                      width: 230px; display: flex; flex-direction: column; gap: 4px;
                      transition: width 0.25s ease; }
   /* Expanded state, toggled by #outermostExpandToggle: all 8 boxes grow
@@ -99,11 +106,15 @@
      pan/zoom already works, but the fixed-size frame around it left no room
      to see the result. */
   #outermostInset.expanded { width: 460px; }
-  #outermostExpandToggle { align-self: flex-end; width: 22px; height: 22px; padding: 0;
-                            display: flex; align-items: center; justify-content: center;
-                            background: white; border: 1px solid #999; border-radius: 2px;
-                            box-shadow: 0 1px 4px rgba(0,0,0,.2); cursor: pointer; }
-  #outermostExpandToggle:hover { background: #f5f5f5; }
+  .outermostToolbarBtn { width: 22px; height: 22px; padding: 0;
+                          display: flex; align-items: center; justify-content: center;
+                          background: white; border: 1px solid #999; border-radius: 2px;
+                          box-shadow: 0 1px 4px rgba(0,0,0,.2); cursor: pointer; }
+  .outermostToolbarBtn:hover { background: #f5f5f5; }
+  /* The plain `display: flex` above wins over the UA [hidden] stylesheet rule
+     (author styles always beat UA styles, specificity aside), so the hidden
+     attribute alone wouldn't actually hide these — these two rules restore it. */
+  #outermostInset[hidden], .outermostToolbarBtn[hidden] { display: none; }
   .outermostRow { display: flex; gap: 4px; }
   .outermostBox { background: white; border: 1px solid #999; box-shadow: 0 1px 4px rgba(0,0,0,.2);
                    display: flex; flex-direction: column; flex: 1; min-width: 0; }
@@ -186,6 +197,7 @@
       <div class="gradientScale" id="choroplethGradientScale"></div>
       <div class="noDataRow"><span class="noDataSwatch"></span><span id="legendNoDataLabel">No data</span></div>
     </div>
+    <div id="outermostToolbar"></div>
     <div id="outermostInset">
       <div class="outermostBox obWide"><div class="obLabel">Canarias</div><div class="obMap" id="ob_canarias"></div></div>
       <div class="outermostBox obWide"><div class="obLabel">Açores</div><div class="obMap" id="ob_acores"></div></div>
@@ -214,13 +226,13 @@
       <canvas id="chart" height="230" role="img"></canvas>
       <div id="missingNote" class="no-data-note"></div>
       <div id="refLegend"></div>
+      <div id="refCaption">Reference ticks: simple (unweighted) mean across sibling NUTS3 regions
+        at each level, not population-weighted. First row is the domain indicator; the rows below
+        it, each prefixed "↳", are the sub-indicators it's built from.</div>
       <div id="storyPanel">
         <h3 id="storyHeading">In plain words</h3>
         <p id="storyText" aria-live="polite">Select a region on the map to see a plain-language summary here.</p>
       </div>
-      <div id="refCaption">Reference ticks: simple (unweighted) mean across sibling NUTS3 regions
-        at each level, not population-weighted. First row is the domain indicator; the rows below
-        it, each prefixed "↳", are the sub-indicators it's built from.</div>
     </div>
   </div>
 </div>
@@ -237,6 +249,8 @@
   const CSV_URL = "data/processed/synthetic_indicators.csv";
   const NAMES_URL = "data/processed/nuts_names.json";
   const HIERARCHY_URL = "data/processed/domain_hierarchy.json";
+  const NUTS0_URL = "data/processed/nuts0_boundaries.geojson";
+  const NUTS1_URL = "data/processed/nuts1_boundaries.geojson";
 
   // --- i18n: static UI chrome (everything NOT sourced from domain_hierarchy.json,
   // which carries its own per-language labels straight from the pipeline).
@@ -464,6 +478,24 @@
       ca: "Torna a reduir els mapes de les regions ultraperifèriques",
       es: "Reducir de nuevo los mapas de las regiones ultraperiféricas",
     },
+    outermostHideTitle: {
+      en: "Hide overseas-region maps", fr: "Masquer les cartes des régions d'outre-mer",
+      de: "Karten der Übersee-Regionen ausblenden", ro: "Ascunde hărțile regiunilor de peste mări",
+      nl: "Kaarten van de overzeese gebieden verbergen",
+      el: "Απόκρυψη των χαρτών των υπερπόντιων περιοχών",
+      sk: "Skryť mapy zámorských regiónov",
+      ca: "Amaga els mapes de les regions ultraperifèriques",
+      es: "Ocultar los mapas de las regiones ultraperiféricas",
+    },
+    outermostShowTitle: {
+      en: "Show overseas-region maps", fr: "Afficher les cartes des régions d'outre-mer",
+      de: "Karten der Übersee-Regionen anzeigen", ro: "Afișează hărțile regiunilor de peste mări",
+      nl: "Kaarten van de overzeese gebieden tonen",
+      el: "Εμφάνιση των χαρτών των υπερπόντιων περιοχών",
+      sk: "Zobraziť mapy zámorských regiónov",
+      ca: "Mostra els mapes de les regions ultraperifèriques",
+      es: "Mostrar los mapas de las regiones ultraperiféricas",
+    },
     // Plain-language narrative panel (see #storyPanel) — a real accessibility
     // aid, not decorative copy: the chart above it is a <canvas>, invisible
     // to screen readers, so these sentences are the only equivalent route to
@@ -621,6 +653,7 @@
     if (legendNoData) legendNoData.textContent = t("legendNoData");
     if (pdfLinkEl) pdfLinkEl.title = t("pdfButtonTitle");
     updateOutermostExpandToggle();
+    updateOutermostVisibilityToggle();
     updateLangSwitcherUI();
     if (domainOrder.length) {
       buildDomainTabs();
@@ -631,21 +664,17 @@
   }
 
   // Reference levels drawn as vertical ticks crossing each horizontal bar.
-  // Colors are the first 4 slots of DOMAIN_PALETTE below (indigo, amber,
-  // teal, rose) — re-validated 2026-09-16 for a more contemporary look
-  // (dataviz skill's validate_palette.js, adjacent pairs: worst CVD ΔE 13.9,
-  // worst normal-vision ΔE 24.9, both well clear of the floors). Kept in
-  // this fixed order (never cycled), same hues as the domain tabs so a
-  // colour means the same thing everywhere in the app.
-  // `prefixLen` is how many characters of the NUTS3 code identify that
-  // level's parent (NUTS3 codes nest by prefix: "ES511" -> country "ES"
-  // (2) -> NUTS1 "ES5" (3) -> NUTS2 "ES51" (4)); "eu" has no parent, one
-  // group for everything.
+  // Colors are the first 4 slots of DOMAIN_PALETTE below (navy, orange,
+  // teal, mustard) — same hues as the domain tabs so a colour means the
+  // same thing everywhere in the app. `prefixLen` is how many characters of
+  // the NUTS3 code identify that level's parent (NUTS3 codes nest by
+  // prefix: "ES511" -> country "ES" (2) -> NUTS1 "ES5" (3) -> NUTS2 "ES51"
+  // (4)); "eu" has no parent, one group for everything.
   const REFERENCE_LEVELS = [
-    { key: "eu",    labelKey: "refLevelEu",      color: "#4F46E5", prefixLen: 0, defaultOn: true },
-    { key: "nuts0", labelKey: "refLevelCountry", color: "#F59E0B", prefixLen: 2, defaultOn: true },
-    { key: "nuts1", labelKey: "refLevelNuts1",   color: "#14B8A6", prefixLen: 3, defaultOn: false },
-    { key: "nuts2", labelKey: "refLevelNuts2",   color: "#E11D48", prefixLen: 4, defaultOn: false },
+    { key: "eu",    labelKey: "refLevelEu",      color: "#034475", prefixLen: 0, defaultOn: true },
+    { key: "nuts0", labelKey: "refLevelCountry", color: "#e68835", prefixLen: 2, defaultOn: true },
+    { key: "nuts1", labelKey: "refLevelNuts1",   color: "#0f888c", prefixLen: 3, defaultOn: false },
+    { key: "nuts2", labelKey: "refLevelNuts2",   color: "#b99b4a", prefixLen: 4, defaultOn: false },
   ];
   const activeLevels = new Set(REFERENCE_LEVELS.filter((l) => l.defaultOn).map((l) => l.key));
 
@@ -764,18 +793,23 @@
   // Each domain gets its own hue instead of every tab sharing one blue ramp,
   // so the map's overall colour cast changes with the tab — the user
   // reported that with one shared hue, switching tabs was invisible at a
-  // glance. Base hues below are a custom set (indigo/amber/teal/rose/
-  // purple, chosen 2026-09-16 for a more contemporary look than the
-  // original primary-ish blue/orange/aqua/yellow/magenta) — re-validated
-  // with the dataviz skill's validate_palette.js, adjacent pairs: worst
-  // CVD ΔE 13.9, worst normal-vision ΔE 24.9, both clear of the floors.
-  // Follows the skill's documented pattern for "when multiple sequential
-  // contexts appear, each takes the next categorical slot's hue".
+  // glance. Base hues below are the user's own final palette (2026-09-17,
+  // "Paleta_Colores.jpeg": navy #034475, orange #e68835, dark teal #0f888c,
+  // greenish mustard #b99b4a, digital lavender #9b8fde), kept in this exact
+  // order per the user's instruction — supersedes the 2026-09-16 indigo/
+  // amber/teal/rose/purple set. Re-checked with the dataviz skill's
+  // validate_palette.js before applying: CVD/normal-vision separation both
+  // pass comfortably (adjacent worst ΔE 14.9 CVD / 20.9 normal-vision,
+  // clear of the 8/15 floors); two of the five colours individually fall
+  // outside the skill's general-purpose lightness/chroma bands (navy reads
+  // as very dark, teal as slightly desaturated) — noted, not corrected,
+  // since this is the user's deliberately chosen final palette, not a
+  // free choice of ours to re-tune.
   // `domainRamp()` derives a light/dark pair from each base hue via HSL
   // (same lightness endpoints for every domain, hue held constant), so
   // every ramp is visually consistent in *how* it reads, only the hue
   // differs.
-  const DOMAIN_PALETTE = ["#4F46E5", "#F59E0B", "#14B8A6", "#E11D48", "#A855F7"];
+  const DOMAIN_PALETTE = ["#034475", "#e68835", "#0f888c", "#b99b4a", "#9b8fde"];
   const MISSING_COLOR = "#dddddd";
 
   function hexToRgb(hex) {
@@ -1058,11 +1092,12 @@
     return miniMap;
   }
 
-  // A single toggle that enlarges all 8 outermost-region boxes together (not
-  // one at a time) — each mini-map's own pan/zoom already works, but their
-  // fixed-size frame left no real room to use it. Icons are inline SVG for
-  // the same reason as the flags/PDF button: no dependency on the OS having
-  // a matching emoji glyph.
+  // Two toolbar buttons above the outermost-region insets — expand/collapse
+  // all 8 boxes together, and show/hide the whole quadrant. Both live in
+  // #outermostToolbar (a sibling of #outermostInset, never hidden itself —
+  // see its CSS comment), not inside the box they control. Icons are
+  // inline SVG for the same reason as the flags/PDF button: no dependency
+  // on the OS having a matching emoji glyph.
   const EXPAND_ICON_SVG =
     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#333333" ' +
     'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
@@ -1075,14 +1110,30 @@
     '<polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>' +
     '<line x1="14" y1="10" x2="21" y2="3"/><line x1="10" y1="14" x2="3" y2="21"/>' +
     "</svg>";
+  // Eye / eye-with-slash — the standard show/hide pictogram pair, kept
+  // visually distinct from the resize-arrows pair above so the two buttons
+  // don't read as duplicates of each other.
+  const SHOW_ICON_SVG =
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#333333" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>' +
+    "</svg>";
+  const HIDE_ICON_SVG =
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#333333" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>' +
+    '<line x1="2" y1="2" x2="22" y2="22"/>' +
+    "</svg>";
   let outermostExpanded = false;
+  let outermostVisible = true;
 
   function buildOutermostExpandToggle() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.id = "outermostExpandToggle";
+    btn.className = "outermostToolbarBtn";
     btn.addEventListener("click", toggleOutermostExpanded);
-    document.getElementById("outermostInset").prepend(btn);
+    document.getElementById("outermostToolbar").appendChild(btn);
     updateOutermostExpandToggle();
   }
 
@@ -1109,6 +1160,65 @@
         map.fitBounds(layer.getBounds(), { padding: [4, 4] });
       }
     }, 260);
+  }
+
+  function buildOutermostVisibilityToggle() {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = "outermostVisibilityToggle";
+    btn.className = "outermostToolbarBtn";
+    btn.addEventListener("click", toggleOutermostVisibility);
+    // First/leftmost in the toolbar — the expand button is only meaningful
+    // once the quadrant is actually visible, so it reads left-to-right as
+    // "the button that controls whether the other button matters".
+    document.getElementById("outermostToolbar").prepend(btn);
+    updateOutermostVisibilityToggle();
+  }
+
+  function updateOutermostVisibilityToggle() {
+    const btn = document.getElementById("outermostVisibilityToggle");
+    if (!btn) return;
+    btn.innerHTML = outermostVisible ? HIDE_ICON_SVG : SHOW_ICON_SVG;
+    btn.title = t(outermostVisible ? "outermostHideTitle" : "outermostShowTitle");
+  }
+
+  // Hides/shows the entire outermost-region quadrant (all 8 boxes at once),
+  // independently of the expand/collapse state — the expand toggle itself
+  // is hidden along with the quadrant, since there's nothing to expand
+  // while it's not shown; showing the quadrant again always restores it in
+  // whichever expand state it was left in (collapsed/expanded aren't reset
+  // by hiding).
+  function toggleOutermostVisibility() {
+    outermostVisible = !outermostVisible;
+    document.getElementById("outermostInset").hidden = !outermostVisible;
+    const expandBtn = document.getElementById("outermostExpandToggle");
+    if (expandBtn) expandBtn.hidden = !outermostVisible;
+    updateOutermostVisibilityToggle();
+  }
+
+  // Country (solid) and NUTS1 (dashed) outline overlays, white, drawn on
+  // top of the NUTS3 choropleth on the main map only (not the outermost-
+  // region insets, where every box is already a single country/NUTS1 unit
+  // — an outline there would either draw nothing or just retrace the
+  // island's own coastline). Static per the map's whole lifetime: unlike
+  // the choropleth fill, these never depend on which domain tab is active,
+  // so they're added once and never touched by repaintChoropleth().
+  // `interactive: false` keeps clicks/hover passing through to the NUTS3
+  // polygons underneath (Leaflet omits the `leaflet-interactive` class —
+  // and with it pointer-events — from non-interactive layers).
+  function addAdminBoundaryOverlays(targetMap, nuts1Geojson, nuts0Geojson) {
+    L.geoJSON(nuts1Geojson, {
+      interactive: false,
+      style: () => ({ color: "#ffffff", weight: 1.5, opacity: 0.9, fill: false, dashArray: "4 3" }),
+    }).addTo(targetMap);
+    // Added after (so painted over) the NUTS1 layer: country borders and
+    // NUTS1 borders coincide everywhere a country only has one NUTS1 (or
+    // at every country edge regardless), and the solid country line should
+    // win there rather than looking dashed.
+    L.geoJSON(nuts0Geojson, {
+      interactive: false,
+      style: () => ({ color: "#ffffff", weight: 2, opacity: 0.95, fill: false }),
+    }).addTo(targetMap);
   }
 
   // Restyle every polygon (main map + all insets) for the currently active
@@ -1462,6 +1572,7 @@
   // fetched data, so it's translated immediately — no flash of the wrong
   // language while the fetch below is still in flight.
   buildLangSwitcher();
+  buildOutermostVisibilityToggle();
   buildOutermostExpandToggle();
   applyLanguage(currentLang);
 
@@ -1470,7 +1581,9 @@
     fetch(CSV_URL).then((r) => r.text()),
     fetch(NAMES_URL).then((r) => r.json()),
     fetch(HIERARCHY_URL).then((r) => r.json()),
-  ]).then(([geojson, csvText, names, hierarchy]) => {
+    fetch(NUTS1_URL).then((r) => r.json()),
+    fetch(NUTS0_URL).then((r) => r.json()),
+  ]).then(([geojson, csvText, names, hierarchy, nuts1Boundaries, nuts0Boundaries]) => {
     indicatorData = parseCSV(csvText);
     regionNames = names;
 
@@ -1509,6 +1622,7 @@
       style: choroplethStyle,
       onEachFeature: wireFeatureInteractions,
     }).addTo(map);
+    addAdminBoundaryOverlays(map, nuts1Boundaries, nuts0Boundaries);
     map.fitBounds(geoLayer.getBounds());
 
     for (const group of OUTERMOST_GROUPS) {

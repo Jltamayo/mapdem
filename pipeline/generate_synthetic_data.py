@@ -369,6 +369,21 @@ def build_domain_hierarchy():
     }
 
 
+def load_admin_boundaries(level, gpkg_path=GPKG_PATH, table=GPKG_TABLE):
+    """NUTS boundaries at a given level (0 = country, 1 = NUTS1) as a plain
+    GeoJSON FeatureCollection — these carry no indicator value at all, they
+    exist purely so docs/index.html can draw country/NUTS1 outline overlays
+    on top of the NUTS3 choropleth for visual orientation (solid white for
+    country, dashed white for NUTS1). Same 10M-resolution source as the
+    NUTS3 layer, just filtered to a different LEVL_CODE."""
+    rows = read_features(gpkg_path, table, ["NUTS_ID"], where_sql=f"LEVL_CODE = {level}")
+    features = [
+        {"type": "Feature", "properties": {"nuts_id": props["NUTS_ID"]}, "geometry": geometry}
+        for props, geometry in rows
+    ]
+    return {"type": "FeatureCollection", "features": features}
+
+
 def build_geojson(regions):
     """FeatureCollection from the same (properties, geometry) pairs used for
     the indicator table, so every indicator row has a matching boundary and
@@ -411,3 +426,10 @@ if __name__ == "__main__":
     with open(hierarchy_path, "w", encoding="utf-8") as f:
         json.dump(hierarchy, f, indent=2, ensure_ascii=False)
     print(f"Wrote {hierarchy_path} ({len(hierarchy)} domains)")
+
+    for level, filename in [(0, "nuts0_boundaries.geojson"), (1, "nuts1_boundaries.geojson")]:
+        boundaries = load_admin_boundaries(level)
+        boundaries_path = OUT_DIR / filename
+        with open(boundaries_path, "w", encoding="utf-8") as f:
+            json.dump(boundaries, f, ensure_ascii=False)
+        print(f"Wrote {boundaries_path} ({len(boundaries['features'])} LEVL_CODE={level} boundaries)")
