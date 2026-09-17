@@ -91,6 +91,13 @@
      name so it reads as a heading over the value line below it. */
   .mapValueTooltip { font-family: inherit; font-size: 12px; line-height: 1.5; }
   .mapValueTooltip strong { color: #312E81; }
+  /* Clicking a region (not keyboard navigation — these paths aren't in the
+     tab order) leaves the browser's own focus ring on the SVG path, drawn
+     as a rectangle around its bounding box rather than its actual shape —
+     a stray black box unrelated to the app's own red "selected" outline.
+     Selection is already communicated visually (STROKE_SELECTED below), so
+     suppressing the native ring here loses no information. */
+  .leaflet-interactive:focus { outline: none; }
 
   /* Outermost-regions inset — mirrors the standard EU-map convention (e.g.
      Eurostat's own reference maps): each outermost region gets its own
