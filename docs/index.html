@@ -23,15 +23,18 @@
   #domainTabs button.active { border-bottom-color: #ffffff; }
 
   #app { display: flex; flex: 1 1 auto; min-height: 0; }
-  #mapWrap { flex: 2 1 0; position: relative; min-width: 0; }
+  /* 3:2 (60/40), not the old 2:1 (67/33) — the map doesn't need that much
+     width, and the right panel outgrew it once the region search box added
+     two more lines, needing a vertical scrollbar on an ordinary screen. */
+  #mapWrap { flex: 3 1 0; position: relative; min-width: 0; }
   /* Padding/border go on #panelInner, not #panel itself: padding directly on
      a `flex-basis: 0` flex item skews Chromium's free-space distribution
      (the padding's fixed px size gets added on top of its proportional
      share instead of being absorbed by it — a real, documented flexbox
      quirk, confirmed by isolating it in a minimal repro). Keeping #panel
-     itself free of padding/border is what makes the 2:1 split exact. */
-  #panel { flex: 1 1 0; min-width: 0; overflow-y: auto; }
-  #panelInner { padding: 16px; box-sizing: border-box; border-left: 1px solid #ddd; }
+     itself free of padding/border is what makes the 3:2 split exact. */
+  #panel { flex: 2 1 0; min-width: 0; overflow-y: auto; }
+  #panelInner { padding: 16px 16px 8px; box-sizing: border-box; border-left: 1px solid #ddd; }
   #banner { position: absolute; z-index: 1000; top: 10px; left: 50px; right: 250px; background: white;
             padding: 6px 12px; border-radius: 4px; font-size: 13px; box-shadow: 0 1px 4px rgba(0,0,0,.3);
             box-sizing: border-box; transition: right 0.25s ease; }
@@ -75,6 +78,12 @@
   #regionHint { color: #777; font-size: 12px; margin-bottom: 10px; }
   .no-data-note { color: #b00; font-size: 12px; margin-top: 8px; }
   canvas { max-width: 100%; }
+  /* Chart.js (maintainAspectRatio: false, see buildChart()) sizes the
+     canvas to fill its immediate parent, so the parent needs an explicit
+     height and `position: relative` — without a wrapper like this, giving
+     the canvas itself a fixed height fought with Chart.js's own resize
+     logic and made it balloon to several thousand px tall instead. */
+  #chartWrap { position: relative; height: 200px; }
   #refLegend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; font-size: 12px; color: #52514e; }
   #refLegend label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
   #refLegend .swatch { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
@@ -276,7 +285,9 @@
       </div>
       <div id="regionTitle">No region selected</div>
       <div id="regionHint">Click any region on the map to see its indicator breakdown here. Hover previews the region without changing the chart.</div>
-      <canvas id="chart" height="230" role="img"></canvas>
+      <div id="chartWrap">
+        <canvas id="chart" role="img"></canvas>
+      </div>
       <div id="missingNote" class="no-data-note"></div>
       <div id="refLegend"></div>
       <div id="refCaption">Reference ticks: simple (unweighted) mean across sibling NUTS3 regions
@@ -1437,6 +1448,12 @@
       },
       options: {
         indexAxis: "y",
+        // Without this, Chart.js's default responsive behaviour keeps the
+        // canvas's aspect ratio fixed, so widening the panel (to give it
+        // more room and fix the very scrollbar this caused) makes the chart
+        // *taller* too — the opposite of the goal. #chart's CSS height
+        // below is what actually controls it now.
+        maintainAspectRatio: false,
         scales: {
           x: { min: 0, max: 100 },
           // Sub-indicator labels can be long ("↳ Access to healthcare/
