@@ -1247,6 +1247,18 @@
   function hideFloatingTooltip() {
     if (floatingTooltipEl) floatingTooltipEl.style.display = "none";
   }
+  // Touch has no continuous "hover" the way a mouse does: on a phone, a
+  // tap shows the tooltip via a synthesised mouseover, but scrolling the
+  // page afterwards is a plain touch-drag that never fires a matching
+  // mouseout on the polygon underneath. Being `position: fixed`, the
+  // tooltip would otherwise stay glued to that same spot on screen while
+  // everything else scrolls away beneath it — reported by the user as a
+  // tooltip that "never disappears". `window` catches the page-level
+  // scroll on mobile (#app becomes a column there, so the page itself
+  // scrolls); `#panel`'s own `overflow-y: auto` scroll doesn't bubble to
+  // window, so it needs its own listener too.
+  window.addEventListener("scroll", hideFloatingTooltip, { passive: true });
+  document.getElementById("panel").addEventListener("scroll", hideFloatingTooltip, { passive: true });
 
   // Shared click/hover wiring for every region polygon, whether it's on the
   // main map or one of the outermost-region inset mini-maps — one linked
