@@ -249,8 +249,6 @@
   const CSV_URL = "data/processed/synthetic_indicators.csv";
   const NAMES_URL = "data/processed/nuts_names.json";
   const HIERARCHY_URL = "data/processed/domain_hierarchy.json";
-  const NUTS0_URL = "data/processed/nuts0_boundaries.geojson";
-  const NUTS1_URL = "data/processed/nuts1_boundaries.geojson";
 
   // --- i18n: static UI chrome (everything NOT sourced from domain_hierarchy.json,
   // which carries its own per-language labels straight from the pipeline).
@@ -1196,31 +1194,6 @@
     updateOutermostVisibilityToggle();
   }
 
-  // Country (solid) and NUTS1 (dashed) outline overlays, white, drawn on
-  // top of the NUTS3 choropleth on the main map only (not the outermost-
-  // region insets, where every box is already a single country/NUTS1 unit
-  // — an outline there would either draw nothing or just retrace the
-  // island's own coastline). Static per the map's whole lifetime: unlike
-  // the choropleth fill, these never depend on which domain tab is active,
-  // so they're added once and never touched by repaintChoropleth().
-  // `interactive: false` keeps clicks/hover passing through to the NUTS3
-  // polygons underneath (Leaflet omits the `leaflet-interactive` class —
-  // and with it pointer-events — from non-interactive layers).
-  function addAdminBoundaryOverlays(targetMap, nuts1Geojson, nuts0Geojson) {
-    L.geoJSON(nuts1Geojson, {
-      interactive: false,
-      style: () => ({ color: "#ffffff", weight: 1.5, opacity: 0.9, fill: false, dashArray: "4 3" }),
-    }).addTo(targetMap);
-    // Added after (so painted over) the NUTS1 layer: country borders and
-    // NUTS1 borders coincide everywhere a country only has one NUTS1 (or
-    // at every country edge regardless), and the solid country line should
-    // win there rather than looking dashed.
-    L.geoJSON(nuts0Geojson, {
-      interactive: false,
-      style: () => ({ color: "#ffffff", weight: 2, opacity: 0.95, fill: false }),
-    }).addTo(targetMap);
-  }
-
   // Restyle every polygon (main map + all insets) for the currently active
   // tab's domain, re-applying the selection highlight afterwards since a
   // full restyle would otherwise reset it to the default stroke.
@@ -1581,9 +1554,7 @@
     fetch(CSV_URL).then((r) => r.text()),
     fetch(NAMES_URL).then((r) => r.json()),
     fetch(HIERARCHY_URL).then((r) => r.json()),
-    fetch(NUTS1_URL).then((r) => r.json()),
-    fetch(NUTS0_URL).then((r) => r.json()),
-  ]).then(([geojson, csvText, names, hierarchy, nuts1Boundaries, nuts0Boundaries]) => {
+  ]).then(([geojson, csvText, names, hierarchy]) => {
     indicatorData = parseCSV(csvText);
     regionNames = names;
 
@@ -1622,7 +1593,6 @@
       style: choroplethStyle,
       onEachFeature: wireFeatureInteractions,
     }).addTo(map);
-    addAdminBoundaryOverlays(map, nuts1Boundaries, nuts0Boundaries);
     map.fitBounds(geoLayer.getBounds());
     // Outermost regions have their own inset maps (see OUTERMOST_GROUPS above),
     // so the main map only ever needs to show mainland Europe — without this,
