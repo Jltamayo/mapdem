@@ -34,7 +34,7 @@
      quirk, confirmed by isolating it in a minimal repro). Keeping #panel
      itself free of padding/border is what makes the 3:2 split exact. */
   #panel { flex: 2 1 0; min-width: 0; overflow-y: auto; }
-  #panelInner { padding: 16px 16px 8px; box-sizing: border-box; border-left: 1px solid #ddd; }
+  #panelInner { padding: 16px 16px 4px; box-sizing: border-box; border-left: 1px solid #ddd; }
   #banner { position: absolute; z-index: 1000; top: 10px; left: 50px; right: 250px; background: white;
             padding: 6px 12px; border-radius: 4px; font-size: 13px; box-shadow: 0 1px 4px rgba(0,0,0,.3);
             box-sizing: border-box; transition: right 0.25s ease; }
@@ -84,7 +84,7 @@
      the canvas itself a fixed height fought with Chart.js's own resize
      logic and made it balloon to several thousand px tall instead. */
   #chartWrap { position: relative; height: 200px; }
-  #refLegend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; font-size: 12px; color: #52514e; }
+  #refLegend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; font-size: 12px; color: #52514e; }
   #refLegend label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
   #refLegend .swatch { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
   /* Plain-language narrative of the same values already shown in the chart
@@ -94,7 +94,7 @@
      canvas via aria-describedby, set in buildChart()). Framed and coloured
      like a quiet callout, not a heading-weight section, since it restates
      rather than adds new information for sighted readers. */
-  #storyPanel { margin-top: 14px; padding: 10px 12px; background: #f7f7f5; border-left: 3px solid #ccc;
+  #storyPanel { margin-top: 10px; padding: 10px 12px; background: #f7f7f5; border-left: 3px solid #ccc;
                 border-radius: 0 4px 4px 0; }
   #storyPanel h3 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em;
                     color: #898781; font-weight: bold; }
@@ -183,8 +183,8 @@
      content. Flag emoji are decorative only (a flag is not a reliable proxy
      for a language — Belgium/Netherlands both use nl, Spain's ca/es share a
      flag); the language code text is what actually disambiguates. */
-  #langSwitcher { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px;
-                  padding-bottom: 10px; border-bottom: 1px solid #eee; }
+  #langSwitcher { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;
+                  padding-bottom: 8px; border-bottom: 1px solid #eee; }
   .langBtn { display: flex; align-items: center; gap: 4px; border: 1px solid #ddd;
              background: #fff; border-radius: 4px; padding: 3px 7px; cursor: pointer;
              font-family: inherit; font-size: 12px; color: #52514e; }
@@ -1431,6 +1431,16 @@
     const missing = rows.filter((r) => row[r.key] === null).map((r) => r.plainLabel);
     const refValues = referenceValuesForRegion(row.nuts3, referenceAverages, rows);
 
+    // Height scales with the row count instead of a fixed constant: with
+    // too little vertical room per row, Chart.js's y-axis autoSkip quietly
+    // drops every other label to avoid overlapping wrapped 2-line text
+    // ("↳ Access to healthcare/education/transport") instead of erroring —
+    // easy to miss until someone actually reads the chart closely. Domains
+    // don't all have to keep the same number of sub-indicators (see
+    // materials/DATOS_REALES_ACTUALIZACION.md), so this has to be based on
+    // rows.length, not a number tuned for today's fixed 1 domain + 3 subs.
+    document.getElementById("chartWrap").style.height = Math.max(200, rows.length * 45 + 40) + "px";
+
     if (chart) chart.destroy();
     chart = new Chart(document.getElementById("chart"), {
       type: "bar",
@@ -1464,6 +1474,14 @@
           // of the sub-indicator rows below it, not just another row.
           y: {
             ticks: {
+              // Without this, Chart.js's autoSkip silently drops every
+              // other label rather than erroring once rows get tight on
+              // vertical room (wrapped 2-line sub-indicator names) — easy
+              // to miss until someone reads the chart closely. Every row
+              // is meaningful data, never decorative, so none can be
+              // silently dropped; use chartWrap's own height (below) to
+              // manage crowding instead.
+              autoSkip: false,
               callback: (_value, i) => wrapLabel(labels[i], 26),
               font: (ctx) => ({ weight: rows[ctx.index] && rows[ctx.index].isDomain ? "bold" : "normal" }),
             },
