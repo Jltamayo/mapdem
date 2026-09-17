@@ -1624,6 +1624,14 @@
     }).addTo(map);
     addAdminBoundaryOverlays(map, nuts1Boundaries, nuts0Boundaries);
     map.fitBounds(geoLayer.getBounds());
+    // Outermost regions have their own inset maps (see OUTERMOST_GROUPS above),
+    // so the main map only ever needs to show mainland Europe — without this,
+    // scrolling/zooming out reveals the rest of the planet with no data on it
+    // at all. Pad the data extent generously so there's still room to pan
+    // around the edges, but pin minZoom to the fitBounds level so zooming out
+    // can't get further than "all of the data, nothing else".
+    map.setMaxBounds(geoLayer.getBounds().pad(0.5));
+    map.setMinZoom(map.getZoom());
 
     for (const group of OUTERMOST_GROUPS) {
       const features = geojson.features.filter((f) => group.codes.includes(f.properties.nuts3));
