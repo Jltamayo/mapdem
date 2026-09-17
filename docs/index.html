@@ -130,6 +130,17 @@
      name so it reads as a heading over the value line below it. */
   .mapValueTooltip { font-family: inherit; font-size: 12px; line-height: 1.5; }
   .mapValueTooltip strong { color: #312E81; }
+  /* The outermost-region insets' own tooltip (see showInsetTooltip()) —
+     `position: fixed` and appended to <body>, not to any Leaflet map's own
+     DOM, so it isn't clipped by that map's `.leaflet-container { overflow:
+     hidden }` and can float over box boundaries, even a neighbouring
+     inset. `pointer-events: none` so hovering the tooltip itself never
+     triggers a mouseout on the polygon underneath it. */
+  #insetTooltip { position: fixed; z-index: 5000; display: none; pointer-events: none;
+                  font-family: inherit; font-size: 12px; line-height: 1.5; max-width: 220px;
+                  background: #fff; border: 1px solid #999; border-radius: 4px;
+                  padding: 6px 8px; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+  #insetTooltip strong { color: #312E81; }
   /* Clicking a region (not keyboard navigation — these paths aren't in the
      tab order) leaves the browser's own focus ring on the SVG path, drawn
      as a rectangle around its bounding box rather than its actual shape —
@@ -1182,23 +1193,57 @@
     return `<strong>${codeAndName(feature.properties.nuts3)}</strong><br>${pick(domain.shortLabel)}: ${valueText}`;
   }
 
+  // Single reusable tooltip element for the outermost-region insets,
+  // living outside every Leaflet map's own DOM (appended to <body>, not to
+  // any .leaflet-container) — deliberately NOT Leaflet's own bindTooltip.
+  // Each inset is a tiny map (~60-140px) with the standard Leaflet
+  // `.leaflet-container { overflow: hidden }`, which clips anything
+  // (including a native tooltip) to that box's own bounds; a plain
+  // `position: fixed` element positioned from the raw mouse coordinates
+  // isn't inside that clipping context at all, so it can float freely
+  // across box boundaries — deliberately even over a neighbouring inset,
+  // per the user's request, rather than being confined to its own region's
+  // little square.
+  let insetTooltipEl = null;
+  function showInsetTooltip(feature, clientX, clientY) {
+    if (!insetTooltipEl) {
+      insetTooltipEl = document.createElement("div");
+      insetTooltipEl.id = "insetTooltip";
+      document.body.appendChild(insetTooltipEl);
+    }
+    insetTooltipEl.innerHTML = mapTooltipHtml(feature);
+    insetTooltipEl.style.left = (clientX + 14) + "px";
+    insetTooltipEl.style.top = (clientY + 14) + "px";
+    insetTooltipEl.style.display = "block";
+  }
+  function hideInsetTooltip() {
+    if (insetTooltipEl) insetTooltipEl.style.display = "none";
+  }
+
   // Shared click/hover wiring for every region polygon, whether it's on the
   // main map or one of the outermost-region inset mini-maps — one linked
   // chart panel, so the interaction must behave identically everywhere.
-  // `showTooltip` defaults to true for the main map; the outermost-region
-  // insets pass false (see buildInsetMap() below) — each inset box is only
-  // ~60-140px tall, and Leaflet's own `.leaflet-container` CSS clips
-  // anything (including a tooltip) that would render outside that box's
-  // own bounds, so the tooltip text got cut off mid-word there instead of
-  // floating freely like it does on the much larger main map.
+  // `showTooltip` defaults to true for the main map, where Leaflet's own
+  // bindTooltip has plenty of room; the outermost-region insets pass false
+  // (see buildInsetMap() below) and get the fixed-position tooltip above
+  // instead, via the mouseover/mousemove/mouseout branches below.
   function wireFeatureInteractions(feature, layer, showTooltip = true) {
     featuresByNuts3[feature.properties.nuts3] = { feature, layer };
     if (showTooltip) {
       layer.bindTooltip(() => mapTooltipHtml(feature), { sticky: true, className: "mapValueTooltip" });
     }
     layer.on({
-      mouseover: () => { if (layer !== selectedLayer) layer.setStyle(STROKE_HOVER); },
-      mouseout: () => { if (layer !== selectedLayer) layer.setStyle(STROKE_DEFAULT); },
+      mouseover: (e) => {
+        if (layer !== selectedLayer) layer.setStyle(STROKE_HOVER);
+        if (!showTooltip) showInsetTooltip(feature, e.originalEvent.clientX, e.originalEvent.clientY);
+      },
+      mousemove: (e) => {
+        if (!showTooltip) showInsetTooltip(feature, e.originalEvent.clientX, e.originalEvent.clientY);
+      },
+      mouseout: () => {
+        if (layer !== selectedLayer) layer.setStyle(STROKE_DEFAULT);
+        if (!showTooltip) hideInsetTooltip();
+      },
       click: () => selectRegion(feature, layer),
     });
   }
