@@ -1264,7 +1264,18 @@
   function wireFeatureInteractions(feature, layer, showTooltip = true) {
     featuresByNuts3[feature.properties.nuts3] = { feature, layer };
     if (showTooltip) {
-      layer.bindTooltip(() => mapTooltipHtml(feature), { sticky: true, className: "mapValueTooltip" });
+      // direction: "left", not Leaflet's default "auto" — auto picks
+      // whichever side has more room within the *map's* own edges, with
+      // no idea that our outermost-region quadrant overlay (top-right
+      // corner) covers part of that space; it kept choosing "right" for
+      // regions near there, landing the tooltip underneath the quadrant
+      // on narrow screens where the two are close together. Always
+      // opening left avoids that corner outright instead of depending on
+      // z-index (already raised too, but this avoids the overlap in the
+      // first place rather than just winning it).
+      layer.bindTooltip(() => mapTooltipHtml(feature), {
+        sticky: true, direction: "left", className: "mapValueTooltip",
+      });
     }
     layer.on({
       mouseover: (e) => {
