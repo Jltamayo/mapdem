@@ -125,30 +125,20 @@
   #choroplethLegend .noDataSwatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px;
                                      background: #dddddd; border: 1px solid #bbb; }
 
-  /* Floating value tooltip on region hover — same font as the rest of the
-     app rather than Leaflet's default, and a bit of colour on the region
-     name so it reads as a heading over the value line below it. */
-  .mapValueTooltip { font-family: inherit; font-size: 12px; line-height: 1.5; }
-  .mapValueTooltip strong { color: #312E81; }
-  /* Leaflet's own tooltip pane defaults to z-index 650 (leaflet.css,
-     loaded before this <style> block, so this rule wins the tie). The
-     outermost-region toolbar/quadrant sit at z-index 1000-1001 so they
-     stay above the main map's tiles/polygons — but that also put them
-     above the main map's own hover tooltip on narrow screens, where the
-     quadrant is close enough to the tooltip's position to hide it behind
-     itself. Raised past both so the tooltip always wins. */
-  .leaflet-tooltip-pane { z-index: 1100; }
-  /* The outermost-region insets' own tooltip (see showInsetTooltip()) —
-     `position: fixed` and appended to <body>, not to any Leaflet map's own
-     DOM, so it isn't clipped by that map's `.leaflet-container { overflow:
-     hidden }` and can float over box boundaries, even a neighbouring
-     inset. `pointer-events: none` so hovering the tooltip itself never
-     triggers a mouseout on the polygon underneath it. */
-  #insetTooltip { position: fixed; z-index: 5000; display: none; pointer-events: none;
-                  font-family: inherit; font-size: 12px; line-height: 1.5; max-width: 220px;
-                  background: #fff; border: 1px solid #999; border-radius: 4px;
-                  padding: 6px 8px; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
-  #insetTooltip strong { color: #312E81; }
+  /* Floating value tooltip on region hover — main map AND every outermost
+     inset alike (see showFloatingTooltip()). `position: fixed` and
+     appended to <body>, not to any Leaflet map's own DOM, so it isn't
+     clipped by that map's `.leaflet-container { overflow: hidden }` and
+     can float over box/panel boundaries — including over the outermost
+     quadrant itself, which otherwise sits at z-index 1000-1001, above
+     Leaflet's own (unused here) default tooltip stacking. `pointer-events:
+     none` so hovering the tooltip itself never triggers a mouseout on the
+     polygon underneath it. */
+  #floatingTooltip { position: fixed; z-index: 5000; display: none; pointer-events: none;
+                      font-family: inherit; font-size: 12px; line-height: 1.5; max-width: 220px;
+                      background: #fff; border: 1px solid #999; border-radius: 4px;
+                      padding: 6px 8px; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+  #floatingTooltip strong { color: #312E81; }
   /* Clicking a region (not keyboard navigation — these paths aren't in the
      tab order) leaves the browser's own focus ring on the SVG path, drawn
      as a rectangle around its bounding box rather than its actual shape —
@@ -1210,84 +1200,69 @@
     return `<strong>${codeAndName(feature.properties.nuts3)}</strong><br>${pick(domain.shortLabel)}: ${valueText}`;
   }
 
-  // Single reusable tooltip element for the outermost-region insets,
-  // living outside every Leaflet map's own DOM (appended to <body>, not to
-  // any .leaflet-container) — deliberately NOT Leaflet's own bindTooltip.
-  // Each inset is a tiny map (~60-140px) with the standard Leaflet
-  // `.leaflet-container { overflow: hidden }`, which clips anything
-  // (including a native tooltip) to that box's own bounds; a plain
-  // `position: fixed` element positioned from the raw mouse coordinates
-  // isn't inside that clipping context at all, so it can float freely
-  // across box boundaries — deliberately even over a neighbouring inset,
-  // per the user's request, rather than being confined to its own region's
-  // little square.
-  let insetTooltipEl = null;
-  function showInsetTooltip(feature, clientX, clientY) {
-    if (!insetTooltipEl) {
-      insetTooltipEl = document.createElement("div");
-      insetTooltipEl.id = "insetTooltip";
-      document.body.appendChild(insetTooltipEl);
+  // Single reusable tooltip element for EVERY map — main map and every
+  // outermost-region inset alike — living outside any Leaflet map's own
+  // DOM (appended to <body>, not to a `.leaflet-container`), deliberately
+  // NOT Leaflet's own bindTooltip. Started out inset-only (each inset is a
+  // tiny map, ~60-140px, and Leaflet's own `.leaflet-container { overflow:
+  // hidden }` clips a native tooltip to that box's own bounds), but the
+  // main map's native tooltip turned out to need the exact same "avoid a
+  // fixed screen region" logic: `direction: "left"` alone broke down for
+  // any region near the map's own left edge (e.g. Iceland), pushing the
+  // tooltip off-screen there while trying to dodge the outermost-region
+  // quadrant on the right. One tooltip, one positioning rule, used
+  // everywhere, is simpler than two different mechanisms each handling
+  // one edge case.
+  let floatingTooltipEl = null;
+  function showFloatingTooltip(feature, clientX, clientY) {
+    if (!floatingTooltipEl) {
+      floatingTooltipEl = document.createElement("div");
+      floatingTooltipEl.id = "floatingTooltip";
+      document.body.appendChild(floatingTooltipEl);
     }
-    insetTooltipEl.innerHTML = mapTooltipHtml(feature);
+    floatingTooltipEl.innerHTML = mapTooltipHtml(feature);
     // Anchor from whichever edge points toward the middle of the screen,
-    // not always down-right of the cursor — the insets sit in the
-    // top-right quadrant, so a fixed down-right offset kept pushing the
-    // tooltip toward the nearest screen edge (cut off there) instead of
-    // into the open space toward the centre.
+    // not a fixed direction — the outermost-region quadrant sits in the
+    // top-right corner, so always opening toward it (or always away from
+    // it, regardless of where the cursor actually is) either overlaps that
+    // corner or runs off the opposite edge for a region near there
+    // instead. Recomputed from the live cursor position every time, this
+    // handles both without needing to know about the quadrant specifically.
     if (clientX > window.innerWidth / 2) {
-      insetTooltipEl.style.right = (window.innerWidth - clientX + 14) + "px";
-      insetTooltipEl.style.left = "auto";
+      floatingTooltipEl.style.right = (window.innerWidth - clientX + 14) + "px";
+      floatingTooltipEl.style.left = "auto";
     } else {
-      insetTooltipEl.style.left = (clientX + 14) + "px";
-      insetTooltipEl.style.right = "auto";
+      floatingTooltipEl.style.left = (clientX + 14) + "px";
+      floatingTooltipEl.style.right = "auto";
     }
     if (clientY > window.innerHeight / 2) {
-      insetTooltipEl.style.bottom = (window.innerHeight - clientY + 14) + "px";
-      insetTooltipEl.style.top = "auto";
+      floatingTooltipEl.style.bottom = (window.innerHeight - clientY + 14) + "px";
+      floatingTooltipEl.style.top = "auto";
     } else {
-      insetTooltipEl.style.top = (clientY + 14) + "px";
-      insetTooltipEl.style.bottom = "auto";
+      floatingTooltipEl.style.top = (clientY + 14) + "px";
+      floatingTooltipEl.style.bottom = "auto";
     }
-    insetTooltipEl.style.display = "block";
+    floatingTooltipEl.style.display = "block";
   }
-  function hideInsetTooltip() {
-    if (insetTooltipEl) insetTooltipEl.style.display = "none";
+  function hideFloatingTooltip() {
+    if (floatingTooltipEl) floatingTooltipEl.style.display = "none";
   }
 
   // Shared click/hover wiring for every region polygon, whether it's on the
   // main map or one of the outermost-region inset mini-maps — one linked
-  // chart panel, so the interaction must behave identically everywhere.
-  // `showTooltip` defaults to true for the main map, where Leaflet's own
-  // bindTooltip has plenty of room; the outermost-region insets pass false
-  // (see buildInsetMap() below) and get the fixed-position tooltip above
-  // instead, via the mouseover/mousemove/mouseout branches below.
-  function wireFeatureInteractions(feature, layer, showTooltip = true) {
+  // chart panel and one tooltip mechanism, so the interaction behaves
+  // identically everywhere.
+  function wireFeatureInteractions(feature, layer) {
     featuresByNuts3[feature.properties.nuts3] = { feature, layer };
-    if (showTooltip) {
-      // direction: "left", not Leaflet's default "auto" — auto picks
-      // whichever side has more room within the *map's* own edges, with
-      // no idea that our outermost-region quadrant overlay (top-right
-      // corner) covers part of that space; it kept choosing "right" for
-      // regions near there, landing the tooltip underneath the quadrant
-      // on narrow screens where the two are close together. Always
-      // opening left avoids that corner outright instead of depending on
-      // z-index (already raised too, but this avoids the overlap in the
-      // first place rather than just winning it).
-      layer.bindTooltip(() => mapTooltipHtml(feature), {
-        sticky: true, direction: "left", className: "mapValueTooltip",
-      });
-    }
     layer.on({
       mouseover: (e) => {
         if (layer !== selectedLayer) layer.setStyle(STROKE_HOVER);
-        if (!showTooltip) showInsetTooltip(feature, e.originalEvent.clientX, e.originalEvent.clientY);
+        showFloatingTooltip(feature, e.originalEvent.clientX, e.originalEvent.clientY);
       },
-      mousemove: (e) => {
-        if (!showTooltip) showInsetTooltip(feature, e.originalEvent.clientX, e.originalEvent.clientY);
-      },
+      mousemove: (e) => showFloatingTooltip(feature, e.originalEvent.clientX, e.originalEvent.clientY),
       mouseout: () => {
         if (layer !== selectedLayer) layer.setStyle(STROKE_DEFAULT);
-        if (!showTooltip) hideInsetTooltip();
+        hideFloatingTooltip();
       },
       click: () => selectRegion(feature, layer),
     });
@@ -1305,7 +1280,7 @@
     addBasemap(miniMap); // attribution already shown once, on the main map's control
     const layer = L.geoJSON({ type: "FeatureCollection", features }, {
       style: choroplethStyle,
-      onEachFeature: (feature, layer) => wireFeatureInteractions(feature, layer, false),
+      onEachFeature: wireFeatureInteractions,
     }).addTo(miniMap);
     miniMap.fitBounds(layer.getBounds(), { padding: [4, 4] });
     insetMaps.push({ map: miniMap, layer });
