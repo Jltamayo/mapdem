@@ -41,6 +41,36 @@
   h2 { margin: 0 0 6px; font-size: 15px; color: #312E81; }
   #domainHeading { font-size: 15px; font-weight: bold; color: #312E81; margin-bottom: 2px; }
   #domainDesc { font-size: 12px; color: #898781; margin-bottom: 8px; }
+  /* Keyboard/screen-reader alternative to clicking a polygon on the map —
+     the SVG paths have no tabindex, so without this, a keyboard-only or
+     screen-reader user has no way to select any region at all. ARIA
+     "combobox with listbox popup" pattern: focus stays on the input the
+     whole time, arrow keys just move aria-activedescendant/.active on the
+     listbox underneath. Positioned relative so the listbox can float
+     directly below it without disturbing the rest of the panel's layout. */
+  #regionSearchWrap { position: relative; margin-bottom: 12px; }
+  /* The toggle button stays in this row even when the input/listbox below
+     are hidden — same reasoning as #outermostToolbar sitting outside
+     #outermostInset: a button that disappeared along with what it hides
+     would leave no way back to showing it again. */
+  #regionSearchHeader { display: flex; align-items: center; justify-content: space-between;
+                         margin-bottom: 3px; }
+  #regionSearchLabel { font-size: 12px; color: #52514e; }
+  #regionSearchInput { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 13px;
+                        padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; }
+  #regionSearchListbox { position: absolute; z-index: 1200; top: 100%; left: 0; right: 0;
+                          margin: 2px 0 0; padding: 0; list-style: none; background: #fff;
+                          border: 1px solid #ccc; border-radius: 4px; max-height: 220px;
+                          overflow-y: auto; box-shadow: 0 2px 6px rgba(0,0,0,.2); font-size: 13px; }
+  #regionSearchListbox li { padding: 5px 8px; cursor: pointer; }
+  #regionSearchListbox li.active, #regionSearchListbox li:hover { background: #ececf9; }
+  #regionSearchListbox li.noResults { color: #898781; cursor: default; }
+  /* Visually hidden but still reachable by screen readers (unlike
+     display:none, which removes it from the accessibility tree too) — used
+     only for the "N results" live count, not for anything sighted users
+     need to see since the listbox itself already shows the results. */
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden;
+             clip: rect(0,0,0,0); white-space: nowrap; }
   #regionTitle { font-size: 18px; font-weight: bold; margin-bottom: 3px; }
   #regionHint { color: #777; font-size: 12px; margin-bottom: 10px; }
   .no-data-note { color: #b00; font-size: 12px; margin-top: 8px; }
@@ -234,6 +264,16 @@
       <h2 id="appTitle">MAPDEM — linked views prototype</h2>
       <div id="domainHeading"></div>
       <div id="domainDesc"></div>
+      <div id="regionSearchWrap">
+        <div id="regionSearchHeader">
+          <label id="regionSearchLabel" for="regionSearchInput">Find a region</label>
+          <button type="button" id="regionSearchToggle" class="outermostToolbarBtn"></button>
+        </div>
+        <input id="regionSearchInput" type="text" role="combobox" aria-autocomplete="list"
+               aria-expanded="false" aria-controls="regionSearchListbox" autocomplete="off">
+        <ul id="regionSearchListbox" role="listbox" hidden></ul>
+        <div id="regionSearchStatus" aria-live="polite" class="sr-only"></div>
+      </div>
       <div id="regionTitle">No region selected</div>
       <div id="regionHint">Click any region on the map to see its indicator breakdown here. Hover previews the region without changing the chart.</div>
       <canvas id="chart" height="230" role="img"></canvas>
@@ -407,6 +447,43 @@
     regionPrefix: {
       en: "Region: ", fr: "Région : ", de: "Region: ", ro: "Regiune: ", nl: "Regio: ",
       el: "Περιοχή: ", sk: "Región: ", ca: "Regió: ", es: "Región: ",
+    },
+    regionSearchLabel: {
+      en: "Find a region", fr: "Rechercher une région", de: "Region suchen",
+      ro: "Găsește o regiune", nl: "Zoek een regio", el: "Αναζήτηση περιοχής",
+      sk: "Nájsť región", ca: "Cerca una regió", es: "Buscar una región",
+    },
+    regionSearchPlaceholder: {
+      en: "Type a region name or code…", fr: "Saisissez un nom ou code de région…",
+      de: "Regionsname oder -code eingeben…", ro: "Introduceți un nume sau cod de regiune…",
+      nl: "Typ een regionaam of -code…", el: "Πληκτρολογήστε όνομα ή κωδικό περιοχής…",
+      sk: "Zadajte názov alebo kód regiónu…", ca: "Escriu un nom o codi de regió…",
+      es: "Escribe un nombre o código de región…",
+    },
+    regionSearchNoResults: {
+      en: "No regions match", fr: "Aucune région ne correspond", de: "Keine Region gefunden",
+      ro: "Nicio regiune nu se potrivește", nl: "Geen regio's gevonden",
+      el: "Δεν βρέθηκε καμία περιοχή", sk: "Nenašiel sa žiadny región",
+      ca: "No hi ha cap regió que coincideixi", es: "No hay ninguna región que coincida",
+    },
+    regionSearchResultsCount: {
+      en: "{n} regions found", fr: "{n} régions trouvées", de: "{n} Regionen gefunden",
+      ro: "{n} regiuni găsite", nl: "{n} regio's gevonden", el: "{n} περιοχές βρέθηκαν",
+      sk: "Nájdených {n} regiónov", ca: "{n} regions trobades", es: "{n} regiones encontradas",
+    },
+    regionSearchHideTitle: {
+      en: "Hide the region search box", fr: "Masquer la recherche de région",
+      de: "Regionssuche ausblenden", ro: "Ascunde căutarea regiunii",
+      nl: "Regiozoekvak verbergen", el: "Απόκρυψη αναζήτησης περιοχής",
+      sk: "Skryť vyhľadávanie regiónu", ca: "Amaga el cercador de regions",
+      es: "Ocultar el buscador de regiones",
+    },
+    regionSearchShowTitle: {
+      en: "Show the region search box", fr: "Afficher la recherche de région",
+      de: "Regionssuche einblenden", ro: "Afișează căutarea regiunii",
+      nl: "Regiozoekvak tonen", el: "Εμφάνιση αναζήτησης περιοχής",
+      sk: "Zobraziť vyhľadávanie regiónu", ca: "Mostra el cercador de regions",
+      es: "Mostrar el buscador de regiones",
     },
     missingNoteTemplate: {
       en: "No data for this region: {list} (shown as grey / zero, not a real zero value).",
@@ -660,6 +737,9 @@
     document.getElementById("banner").textContent = t("bannerText");
     document.getElementById("refCaption").textContent = t("refCaption");
     document.getElementById("storyHeading").textContent = t("storyHeading");
+    document.getElementById("regionSearchLabel").textContent = t("regionSearchLabel");
+    document.getElementById("regionSearchInput").placeholder = t("regionSearchPlaceholder");
+    updateRegionSearchToggle();
     const legendNoData = document.getElementById("legendNoDataLabel");
     if (legendNoData) legendNoData.textContent = t("legendNoData");
     if (pdfLinkEl) pdfLinkEl.title = t("pdfButtonTitle");
@@ -1048,6 +1128,12 @@
 
   let map, geoLayer, selectedLayer;
   const insetMaps = [];
+  // Every selectable NUTS3 region (main map + all 8 outermost insets),
+  // keyed by code — populated in wireFeatureInteractions() below, the one
+  // place both the main map and the insets already funnel through. Lets
+  // the region search widget resolve a typed name back to a real
+  // {feature, layer} pair without needing its own separate lookup.
+  const featuresByNuts3 = {};
   const STROKE_DEFAULT = { color: "#555555", weight: 1, fillOpacity: 0.85 };
   const STROKE_HOVER = { color: "#312E81", weight: 2, fillOpacity: 1 };
   // Status colour (selection), not a domain colour — deliberately outside
@@ -1089,6 +1175,7 @@
   // main map or one of the outermost-region inset mini-maps — one linked
   // chart panel, so the interaction must behave identically everywhere.
   function wireFeatureInteractions(feature, layer) {
+    featuresByNuts3[feature.properties.nuts3] = { feature, layer };
     layer.bindTooltip(() => mapTooltipHtml(feature), { sticky: true, className: "mapValueTooltip" });
     layer.on({
       mouseover: () => { if (layer !== selectedLayer) layer.setStyle(STROKE_HOVER); },
@@ -1562,6 +1649,142 @@
     updateRegionTexts();
   }
 
+  // Same effect as clicking the region's polygon, but reachable from the
+  // keyboard-driven search box below instead of a mouse — resolves a NUTS3
+  // code back to the {feature, layer} pair wireFeatureInteractions()
+  // recorded for it, then hands off to the exact same selectRegion() the
+  // click handler uses, so there's no second selection code path to drift.
+  function selectRegionByNuts3(code) {
+    const entry = featuresByNuts3[code];
+    if (!entry) return;
+    selectRegion(entry.feature, entry.layer);
+    // Outermost regions live in their own already-framed inset box — only
+    // the main map needs (or can sensibly use) a pan-to-selection.
+    if (!OUTERMOST_CODES.has(code)) {
+      map.panTo(entry.layer.getBounds().getCenter());
+    }
+  }
+
+  // Keyboard/screen-reader alternative to clicking a map polygon (see
+  // #regionSearchWrap's CSS comment for why this exists at all). Standard
+  // ARIA "combobox with listbox popup" pattern: focus never leaves the
+  // text input — arrow keys just move a highlighted index over the <li>
+  // options rendered below it, mirrored in aria-activedescendant so a
+  // screen reader announces the highlighted option without a focus move.
+  function buildRegionSearch() {
+    const input = document.getElementById("regionSearchInput");
+    const listbox = document.getElementById("regionSearchListbox");
+    const status = document.getElementById("regionSearchStatus");
+    let results = []; // NUTS3 codes currently shown, in display order
+    let highlighted = -1;
+
+    function closeListbox() {
+      listbox.hidden = true;
+      input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
+      results = [];
+      highlighted = -1;
+    }
+
+    function setHighlighted(index) {
+      const prev = listbox.querySelector("li.active");
+      if (prev) prev.classList.remove("active");
+      highlighted = index;
+      if (index < 0 || index >= results.length) {
+        input.removeAttribute("aria-activedescendant");
+        return;
+      }
+      const el = document.getElementById("regionOpt-" + results[index]);
+      el.classList.add("active");
+      el.scrollIntoView({ block: "nearest" });
+      input.setAttribute("aria-activedescendant", el.id);
+    }
+
+    function renderResults(query) {
+      const q = query.trim().toLowerCase();
+      listbox.innerHTML = "";
+      if (!q) { closeListbox(); return; }
+
+      results = Object.keys(featuresByNuts3)
+        .filter((code) => codeAndName(code).toLowerCase().includes(q))
+        .slice(0, 30);
+      highlighted = -1;
+      input.setAttribute("aria-expanded", "true");
+      listbox.hidden = false;
+
+      if (!results.length) {
+        const li = document.createElement("li");
+        li.className = "noResults";
+        li.textContent = t("regionSearchNoResults");
+        listbox.appendChild(li);
+        status.textContent = t("regionSearchNoResults");
+        return;
+      }
+      for (const code of results) {
+        const li = document.createElement("li");
+        li.id = "regionOpt-" + code;
+        li.setAttribute("role", "option");
+        li.textContent = codeAndName(code);
+        li.addEventListener("mousedown", (e) => {
+          // mousedown, not click: fires before the input's blur, so
+          // selection happens before closeListbox() would otherwise run.
+          e.preventDefault();
+          selectRegionByNuts3(code);
+          closeListbox();
+        });
+        listbox.appendChild(li);
+      }
+      status.textContent = t("regionSearchResultsCount", { n: results.length });
+    }
+
+    input.addEventListener("input", () => renderResults(input.value));
+    input.addEventListener("blur", () => closeListbox());
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (results.length) setHighlighted((highlighted + 1) % results.length);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (results.length) setHighlighted((highlighted - 1 + results.length) % results.length);
+      } else if (e.key === "Enter") {
+        if (highlighted >= 0) {
+          e.preventDefault();
+          selectRegionByNuts3(results[highlighted]);
+          closeListbox();
+        }
+      } else if (e.key === "Escape") {
+        closeListbox();
+      }
+    });
+  }
+
+  // Hides/shows the search box (input + listbox + status), independently
+  // of buildOutermostVisibilityToggle() above — same idea (mobile screens
+  // don't have room to keep every panel expanded at once), but a separate
+  // piece of state since the two toggle unrelated parts of the page.
+  let regionSearchVisible = true;
+
+  function buildRegionSearchToggle() {
+    document.getElementById("regionSearchToggle").addEventListener("click", toggleRegionSearchVisibility);
+    updateRegionSearchToggle();
+  }
+
+  function updateRegionSearchToggle() {
+    const btn = document.getElementById("regionSearchToggle");
+    btn.innerHTML = regionSearchVisible ? HIDE_ICON_SVG : SHOW_ICON_SVG;
+    btn.title = t(regionSearchVisible ? "regionSearchHideTitle" : "regionSearchShowTitle");
+  }
+
+  function toggleRegionSearchVisibility() {
+    regionSearchVisible = !regionSearchVisible;
+    const input = document.getElementById("regionSearchInput");
+    // Blur before hiding, not after: closes any open listbox through the
+    // input's own existing blur handler instead of duplicating that logic.
+    if (!regionSearchVisible) input.blur();
+    input.hidden = !regionSearchVisible;
+    updateRegionSearchToggle();
+  }
+
   let indicatorData = {};
   let referenceAverages = {};
   let regionNames = {};
@@ -1573,6 +1796,8 @@
   buildLangSwitcher();
   buildOutermostVisibilityToggle();
   buildOutermostExpandToggle();
+  buildRegionSearch();
+  buildRegionSearchToggle();
   applyLanguage(currentLang);
 
   Promise.all([
