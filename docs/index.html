@@ -1339,10 +1339,21 @@
     btn.title = t(outermostExpanded ? "outermostCollapseTitle" : "outermostExpandTitle");
   }
 
+  // The banner only needs to dodge the quadrant while it's both expanded
+  // AND actually shown — kept as its own function (not inlined at each
+  // call site) because it has to be re-run from two different toggles
+  // (expand and visibility), and forgetting one of them is exactly the
+  // bug this fixes: hiding an expanded quadrant used to leave the banner
+  // squeezed into the space of a panel that was no longer there, with no
+  // way back to full width short of re-showing and re-collapsing it.
+  function syncBannerInsetSpace() {
+    document.getElementById("banner").classList.toggle("insetExpanded", outermostVisible && outermostExpanded);
+  }
+
   function toggleOutermostExpanded() {
     outermostExpanded = !outermostExpanded;
     document.getElementById("outermostInset").classList.toggle("expanded", outermostExpanded);
-    document.getElementById("banner").classList.toggle("insetExpanded", outermostExpanded);
+    syncBannerInsetSpace();
     updateOutermostExpandToggle();
     // Leaflet doesn't notice its container's CSS size changing on its own —
     // invalidateSize() re-measures it, but only after the width/height
@@ -1388,6 +1399,7 @@
     document.getElementById("outermostInset").hidden = !outermostVisible;
     const expandBtn = document.getElementById("outermostExpandToggle");
     if (expandBtn) expandBtn.hidden = !outermostVisible;
+    syncBannerInsetSpace();
     updateOutermostVisibilityToggle();
   }
 
