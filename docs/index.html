@@ -1185,9 +1185,17 @@
   // Shared click/hover wiring for every region polygon, whether it's on the
   // main map or one of the outermost-region inset mini-maps — one linked
   // chart panel, so the interaction must behave identically everywhere.
-  function wireFeatureInteractions(feature, layer) {
+  // `showTooltip` defaults to true for the main map; the outermost-region
+  // insets pass false (see buildInsetMap() below) — each inset box is only
+  // ~60-140px tall, and Leaflet's own `.leaflet-container` CSS clips
+  // anything (including a tooltip) that would render outside that box's
+  // own bounds, so the tooltip text got cut off mid-word there instead of
+  // floating freely like it does on the much larger main map.
+  function wireFeatureInteractions(feature, layer, showTooltip = true) {
     featuresByNuts3[feature.properties.nuts3] = { feature, layer };
-    layer.bindTooltip(() => mapTooltipHtml(feature), { sticky: true, className: "mapValueTooltip" });
+    if (showTooltip) {
+      layer.bindTooltip(() => mapTooltipHtml(feature), { sticky: true, className: "mapValueTooltip" });
+    }
     layer.on({
       mouseover: () => { if (layer !== selectedLayer) layer.setStyle(STROKE_HOVER); },
       mouseout: () => { if (layer !== selectedLayer) layer.setStyle(STROKE_DEFAULT); },
@@ -1207,7 +1215,7 @@
     addBasemap(miniMap); // attribution already shown once, on the main map's control
     const layer = L.geoJSON({ type: "FeatureCollection", features }, {
       style: choroplethStyle,
-      onEachFeature: wireFeatureInteractions,
+      onEachFeature: (feature, layer) => wireFeatureInteractions(feature, layer, false),
     }).addTo(miniMap);
     miniMap.fitBounds(layer.getBounds(), { padding: [4, 4] });
     insetMaps.push({ map: miniMap, layer });
