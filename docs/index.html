@@ -130,6 +130,14 @@
      name so it reads as a heading over the value line below it. */
   .mapValueTooltip { font-family: inherit; font-size: 12px; line-height: 1.5; }
   .mapValueTooltip strong { color: #312E81; }
+  /* Leaflet's own tooltip pane defaults to z-index 650 (leaflet.css,
+     loaded before this <style> block, so this rule wins the tie). The
+     outermost-region toolbar/quadrant sit at z-index 1000-1001 so they
+     stay above the main map's tiles/polygons — but that also put them
+     above the main map's own hover tooltip on narrow screens, where the
+     quadrant is close enough to the tooltip's position to hide it behind
+     itself. Raised past both so the tooltip always wins. */
+  .leaflet-tooltip-pane { z-index: 1100; }
   /* The outermost-region insets' own tooltip (see showInsetTooltip()) —
      `position: fixed` and appended to <body>, not to any Leaflet map's own
      DOM, so it isn't clipped by that map's `.leaflet-container { overflow:
@@ -213,8 +221,13 @@
      below the map. Font sizes throughout are bumped for touch/reading
      distance, not just to fit — the desktop sizes are print/mouse sizes. */
   @media (max-width: 768px) {
-    #domainTabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    #domainTabs button { flex: 0 0 auto; min-width: 110px; font-size: 15px; padding: 12px 14px; }
+    /* All 5 tabs stay evenly split and on-screen at once, same as desktop
+       — a fixed min-width plus horizontal scroll (the previous approach)
+       left 2-3 tabs permanently off-screen with no visual hint there were
+       more, easy to miss entirely on a phone. Small font + tight padding,
+       and text wraps to 2 lines where a label doesn't fit on one. */
+    #domainTabs button { flex: 1; min-width: 0; font-size: 10.5px; line-height: 1.15;
+                          padding: 8px 3px; }
 
     #app { flex-direction: column; }
     #mapWrap { flex: 0 0 55vh; min-height: 300px; }
@@ -476,11 +489,15 @@
       sk: "Nájsť región", ca: "Cerca una regió", es: "Buscar una región",
     },
     regionSearchPlaceholder: {
-      en: "Type a region name or code…", fr: "Saisissez un nom ou code de région…",
-      de: "Regionsname oder -code eingeben…", ro: "Introduceți un nume sau cod de regiune…",
-      nl: "Typ een regionaam of -code…", el: "Πληκτρολογήστε όνομα ή κωδικό περιοχής…",
-      sk: "Zadajte názov alebo kód regiónu…", ca: "Escriu un nom o codi de regió…",
-      es: "Escribe un nombre o código de región…",
+      en: "Type a region name or code (Latin-script name)…",
+      fr: "Saisissez un nom ou code de région (nom latin)…",
+      de: "Regionsname oder -code eingeben (lateinische Schreibweise)…",
+      ro: "Introduceți un nume sau cod de regiune (denumire latină)…",
+      nl: "Typ een regionaam of -code (Latijnse schrijfwijze)…",
+      el: "Πληκτρολογήστε όνομα ή κωδικό περιοχής (λατινική ονομασία)…",
+      sk: "Zadajte názov alebo kód regiónu (latinský názov)…",
+      ca: "Escriu un nom o codi de regió (denominació llatina)…",
+      es: "Escribe un nombre o código de región (denominación latina)…",
     },
     regionSearchNoResults: {
       en: "No regions match", fr: "Aucune région ne correspond", de: "Keine Region gefunden",
@@ -1212,8 +1229,25 @@
       document.body.appendChild(insetTooltipEl);
     }
     insetTooltipEl.innerHTML = mapTooltipHtml(feature);
-    insetTooltipEl.style.left = (clientX + 14) + "px";
-    insetTooltipEl.style.top = (clientY + 14) + "px";
+    // Anchor from whichever edge points toward the middle of the screen,
+    // not always down-right of the cursor — the insets sit in the
+    // top-right quadrant, so a fixed down-right offset kept pushing the
+    // tooltip toward the nearest screen edge (cut off there) instead of
+    // into the open space toward the centre.
+    if (clientX > window.innerWidth / 2) {
+      insetTooltipEl.style.right = (window.innerWidth - clientX + 14) + "px";
+      insetTooltipEl.style.left = "auto";
+    } else {
+      insetTooltipEl.style.left = (clientX + 14) + "px";
+      insetTooltipEl.style.right = "auto";
+    }
+    if (clientY > window.innerHeight / 2) {
+      insetTooltipEl.style.bottom = (window.innerHeight - clientY + 14) + "px";
+      insetTooltipEl.style.top = "auto";
+    } else {
+      insetTooltipEl.style.top = (clientY + 14) + "px";
+      insetTooltipEl.style.bottom = "auto";
+    }
     insetTooltipEl.style.display = "block";
   }
   function hideInsetTooltip() {
