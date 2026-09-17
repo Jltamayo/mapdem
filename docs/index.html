@@ -86,6 +86,12 @@
   #choroplethLegend .noDataSwatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px;
                                      background: #dddddd; border: 1px solid #bbb; }
 
+  /* Floating value tooltip on region hover — same font as the rest of the
+     app rather than Leaflet's default, and a bit of colour on the region
+     name so it reads as a heading over the value line below it. */
+  .mapValueTooltip { font-family: inherit; font-size: 12px; line-height: 1.5; }
+  .mapValueTooltip strong { color: #312E81; }
+
   /* Outermost-regions inset — mirrors the standard EU-map convention (e.g.
      Eurostat's own reference maps): each outermost region gets its own
      small framed mini-map, stacked in a corner, rather than distorting the
@@ -1060,10 +1066,23 @@
     return { ...STROKE_DEFAULT, fillColor: valueToColor(raw, domain.ramp) };
   }
 
+  // Floating value tooltip on hover, same idea as the bar chart's own
+  // Chart.js tooltip on the right — a function, not a fixed string, since
+  // it has to reflect whichever domain tab is currently active; Leaflet
+  // re-evaluates it fresh every time the tooltip opens (each mouseover).
+  function mapTooltipHtml(feature) {
+    const row = indicatorData[feature.properties.nuts3];
+    const domain = domainsByKey[activeDomainKey];
+    const raw = row ? row[activeDomainKey] : null;
+    const valueText = raw === null || raw === undefined ? t("legendNoData") : `${raw.toFixed(1)} / 100`;
+    return `<strong>${codeAndName(feature.properties.nuts3)}</strong><br>${pick(domain.shortLabel)}: ${valueText}`;
+  }
+
   // Shared click/hover wiring for every region polygon, whether it's on the
   // main map or one of the outermost-region inset mini-maps — one linked
   // chart panel, so the interaction must behave identically everywhere.
   function wireFeatureInteractions(feature, layer) {
+    layer.bindTooltip(() => mapTooltipHtml(feature), { sticky: true, className: "mapValueTooltip" });
     layer.on({
       mouseover: () => { if (layer !== selectedLayer) layer.setStyle(STROKE_HOVER); },
       mouseout: () => { if (layer !== selectedLayer) layer.setStyle(STROKE_DEFAULT); },
