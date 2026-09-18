@@ -23,9 +23,14 @@
   #domainTabs button.active { border-bottom-color: #ffffff; }
 
   #app { display: flex; flex: 1 1 auto; min-height: 0; }
-  /* 3:2 (60/40), not the old 2:1 (67/33) — the map doesn't need that much
-     width, and the right panel outgrew it once the region search box added
-     two more lines, needing a vertical scrollbar on an ordinary screen. */
+  /* Text+chart panel visually on the left, map on the right — `order`
+     swaps which side each one paints on without touching its own
+     flex-basis below, so each panel's width proportion travels with its
+     content instead of staying pinned to a side. #panel keeps the 40%
+     (flex:2) it always had, #mapWrap keeps the 60% (flex:3) it always
+     had; only where they sit changed. */
+  #panel { order: 1; }
+  #mapWrap { order: 2; }
   #mapWrap { flex: 3 1 0; position: relative; min-width: 0; }
   /* Padding/border go on #panelInner, not #panel itself: padding directly on
      a `flex-basis: 0` flex item skews Chromium's free-space distribution
@@ -34,13 +39,13 @@
      quirk, confirmed by isolating it in a minimal repro). Keeping #panel
      itself free of padding/border is what makes the 3:2 split exact. */
   #panel { flex: 2 1 0; min-width: 0; overflow-y: auto; }
-  #panelInner { padding: 16px 16px 4px; box-sizing: border-box; border-left: 1px solid #ddd; }
-  #banner { position: absolute; z-index: 1000; top: 10px; left: 50px; right: 250px; background: white;
-            padding: 6px 12px; border-radius: 4px; font-size: 13px; box-shadow: 0 1px 4px rgba(0,0,0,.3);
-            box-sizing: border-box; transition: right 0.25s ease; }
-  /* Keeps clear of the outermost-regions inset when it's expanded (230px ->
-     460px wide) — toggled in lockstep with #outermostInset.expanded by JS. */
-  #banner.insetExpanded { right: 480px; }
+  /* border-right, not -left: the divider always faces the map, and the
+     map is now on this panel's right instead of its left. */
+  #panelInner { padding: 16px 16px 4px; box-sizing: border-box; border-right: 1px solid #ddd; }
+  /* Plain text now (not the floating box it used to be, back when it sat
+     over the map) — moved into the text+chart panel, right under the
+     title, per the user's request. */
+  #banner { display: block; font-size: 13px; font-weight: normal; color: #D03B3B; margin-bottom: 10px; }
   h2 { margin: 0 0 6px; font-size: 15px; color: #312E81; }
   #domainHeading { font-size: 15px; font-weight: bold; color: #312E81; margin-bottom: 2px; }
   #domainDesc { font-size: 12px; color: #898781; margin-bottom: 8px; }
@@ -68,6 +73,14 @@
   #regionSearchListbox li { padding: 5px 8px; cursor: pointer; }
   #regionSearchListbox li.active, #regionSearchListbox li:hover { background: #ececf9; }
   #regionSearchListbox li.noResults { color: #898781; cursor: default; }
+  /* FASE 2: year + bins sliders (left panel copy) plus the second print
+     button, sitting to their right as one row. */
+  #leftControls { display: flex; align-items: flex-end; gap: 10px; margin-bottom: 12px; }
+  #leftSliders { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .sliderRow { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #52514e; }
+  .sliderRow label { flex: 0 0 32px; }
+  .sliderRow input[type="range"] { flex: 1; min-width: 0; }
+  .sliderValue { flex: 0 0 28px; text-align: right; font-weight: bold; color: #312E81; }
   /* Visually hidden but still reachable by screen readers (unlike
      display:none, which removes it from the accessibility tree too) — used
      only for the "N results" live count, not for anything sighted users
@@ -101,6 +114,19 @@
   #storyPanel p { margin: 0; font-size: 13px; line-height: 1.5; color: #333; }
   #refCaption { font-size: 11px; color: #898781; margin-top: 6px; }
 
+  /* FASE 2: map-panel copy of the year/bins sliders, in the top-left space
+     that opened up when #banner moved into the text+chart panel. Compact
+     (a fixed max-width, not stretched to fill the row) rather than
+     dynamically dodging the outermost-region quadrant the way #banner
+     used to — if the quadrant is expanded on a narrow screen it can cover
+     this box, but the identical, always-reachable slider pair in the left
+     panel (#leftControls, kept in sync automatically) still works. */
+  #mapSliders { position: absolute; z-index: 1000; top: 10px; left: 50px; max-width: 240px;
+                background: white; padding: 6px 10px; border-radius: 4px; font-size: 11px;
+                box-shadow: 0 1px 4px rgba(0,0,0,.3); box-sizing: border-box;
+                display: flex; flex-direction: column; gap: 4px; }
+  #mapSliders .sliderRow { font-size: 11px; }
+
   /* Choropleth legend, bottom-left of the map — two sub-legends: the colour
      scale (0-100, always ascending — colour follows the raw value directly)
      with a direction hint (which end is "better" for this domain, since
@@ -116,10 +142,14 @@
      widest line (title/direction text), which varies a lot by language —
      a fixed-width bar stayed short whenever a translation made the box
      wider than that fixed width, instead of always spanning it. */
-  #choroplethLegend .gradientBar { width: 100%; height: 10px; border-radius: 2px; margin: 3px 0 1px;
-                                    box-sizing: border-box; }
-  #choroplethLegend .gradientScale { display: flex; justify-content: space-between; font-size: 10px;
-                                      color: #898781; }
+  /* FASE 2: discrete bin rows (one swatch + range label per bin, numBins
+     of them) instead of a continuous gradient bar — same visual language
+     as .noDataRow/.noDataSwatch below, on purpose, since both are "colour
+     swatch + what it means" rows now. */
+  #choroplethLegend #choroplethBinRows { margin: 3px 0 1px; }
+  #choroplethLegend .binRow { display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+  #choroplethLegend .binSwatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px;
+                                  border: 1px solid rgba(0,0,0,.15); flex: 0 0 auto; }
   #choroplethLegend .noDataRow { display: flex; align-items: center; gap: 5px; margin-top: 5px;
                                   padding-top: 5px; border-top: 1px solid #eee; }
   #choroplethLegend .noDataSwatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px;
@@ -222,10 +252,10 @@
     #app { flex-direction: column; }
     #mapWrap { flex: 0 0 55vh; min-height: 300px; }
     #panel { flex: 1 1 auto; overflow-y: visible; }
-    #panelInner { border-left: none; border-top: 1px solid #ddd; }
+    /* border-bottom, not -right: stacked in a column here, the map sits
+       below the text+chart panel instead of beside it. */
+    #panelInner { border-right: none; border-bottom: 1px solid #ddd; }
 
-    #banner { left: 50px; right: 150px; font-size: 13px; }
-    #banner.insetExpanded { right: min(92vw, 460px); }
     #outermostInset { width: 130px; }
     #outermostInset.expanded { width: min(92vw, 460px); }
     .outermostBox .obLabel { font-size: 9px; }
@@ -253,14 +283,23 @@
 <div id="domainTabs"></div>
 <div id="app">
   <div id="mapWrap">
-    <div id="banner">Click a region — map and chart stay in sync (real NUTS3 boundaries, GISCO 2024; indicator values are still synthetic)</div>
-
     <div id="map" style="height:100%"></div>
+    <div id="mapSliders">
+      <div class="sliderRow">
+        <label id="yearSliderLabelMap" for="yearSliderMap">Year</label>
+        <input id="yearSliderMap" type="range" min="2016" max="2026" step="1" value="2026">
+        <span id="yearValueMap" class="sliderValue">2026</span>
+      </div>
+      <div class="sliderRow">
+        <label id="binsSliderLabelMap" for="binsSliderMap">Bins</label>
+        <input id="binsSliderMap" type="range" min="2" max="6" step="1" value="5">
+        <span id="binsValueMap" class="sliderValue">5</span>
+      </div>
+    </div>
     <div id="choroplethLegend">
       <div id="choroplethLegendTitle"></div>
       <div id="choroplethLegendDirection"></div>
-      <div class="gradientBar" id="choroplethGradientBar"></div>
-      <div class="gradientScale" id="choroplethGradientScale"></div>
+      <div id="choroplethBinRows"></div>
       <div class="noDataRow"><span class="noDataSwatch"></span><span id="legendNoDataLabel">No data</span></div>
     </div>
     <div id="outermostToolbar"></div>
@@ -285,17 +324,32 @@
     <div id="panelInner">
       <div id="langSwitcher"></div>
       <h2 id="appTitle">MAPDEM — linked views prototype</h2>
+      <div id="banner">Click a region — map and chart stay in sync (real NUTS3 boundaries, GISCO 2024; indicator values are still synthetic)</div>
       <div id="domainHeading"></div>
       <div id="domainDesc"></div>
       <div id="regionSearchWrap">
         <div id="regionSearchHeader">
           <label id="regionSearchLabel" for="regionSearchInput">Find a region</label>
-          <button type="button" id="regionSearchToggle" class="outermostToolbarBtn"></button>
         </div>
         <input id="regionSearchInput" type="text" role="combobox" aria-autocomplete="list"
                aria-expanded="false" aria-controls="regionSearchListbox" autocomplete="off">
         <ul id="regionSearchListbox" role="listbox" hidden></ul>
         <div id="regionSearchStatus" aria-live="polite" class="sr-only"></div>
+      </div>
+      <div id="leftControls">
+        <div id="leftSliders">
+          <div class="sliderRow">
+            <label id="yearSliderLabel" for="yearSliderLeft">Year</label>
+            <input id="yearSliderLeft" type="range" min="2016" max="2026" step="1" value="2026">
+            <span id="yearValueLeft" class="sliderValue">2026</span>
+          </div>
+          <div class="sliderRow">
+            <label id="binsSliderLabel" for="binsSliderLeft">Bins</label>
+            <input id="binsSliderLeft" type="range" min="2" max="6" step="1" value="5">
+            <span id="binsValueLeft" class="sliderValue">5</span>
+          </div>
+        </div>
+        <button type="button" id="printButtonLeft" class="outermostToolbarBtn"></button>
       </div>
       <div id="regionTitle">No region selected</div>
       <div id="regionHint">Click any region on the map to see its indicator breakdown here. Hover previews the region without changing the chart.</div>
@@ -424,11 +478,22 @@
 
   const UI_STRINGS = {
     appTitle: {
-      en: "MAPDEM — linked views prototype", fr: "MAPDEM — prototype de vues liées",
-      de: "MAPDEM — Prototyp verknüpfter Ansichten", ro: "MAPDEM — prototip de vizualizări conectate",
-      nl: "MAPDEM — prototype met gekoppelde weergaven", el: "MAPDEM — πρωτότυπο συνδεδεμένων προβολών",
-      sk: "MAPDEM — prototyp prepojených zobrazení",
-      ca: "MAPDEM — prototip de vistes vinculades", es: "MAPDEM — prototipo de vistas vinculadas",
+      en: "MAPDEM — {year} — linked views prototype", fr: "MAPDEM — {year} — prototype de vues liées",
+      de: "MAPDEM — {year} — Prototyp verknüpfter Ansichten",
+      ro: "MAPDEM — {year} — prototip de vizualizări conectate",
+      nl: "MAPDEM — {year} — prototype met gekoppelde weergaven",
+      el: "MAPDEM — {year} — πρωτότυπο συνδεδεμένων προβολών",
+      sk: "MAPDEM — {year} — prototyp prepojených zobrazení",
+      ca: "MAPDEM — {year} — prototip de vistes vinculades",
+      es: "MAPDEM — {year} — prototipo de vistas vinculadas",
+    },
+    yearSliderLabel: {
+      en: "Year", fr: "Année", de: "Jahr", ro: "An", nl: "Jaar", el: "Έτος",
+      sk: "Rok", ca: "Any", es: "Año",
+    },
+    binsSliderLabel: {
+      en: "Bins", fr: "Classes", de: "Klassen", ro: "Clase", nl: "Klassen", el: "Κλάσεις",
+      sk: "Triedy", ca: "Classes", es: "Clases",
     },
     bannerText: {
       en: "Click a region — map and chart stay in sync (real NUTS3 boundaries, GISCO 2024; indicator values are still synthetic)",
@@ -499,20 +564,6 @@
       en: "{n} regions found", fr: "{n} régions trouvées", de: "{n} Regionen gefunden",
       ro: "{n} regiuni găsite", nl: "{n} regio's gevonden", el: "{n} περιοχές βρέθηκαν",
       sk: "Nájdených {n} regiónov", ca: "{n} regions trobades", es: "{n} regiones encontradas",
-    },
-    regionSearchHideTitle: {
-      en: "Hide the region search box", fr: "Masquer la recherche de région",
-      de: "Regionssuche ausblenden", ro: "Ascunde căutarea regiunii",
-      nl: "Regiozoekvak verbergen", el: "Απόκρυψη αναζήτησης περιοχής",
-      sk: "Skryť vyhľadávanie regiónu", ca: "Amaga el cercador de regions",
-      es: "Ocultar el buscador de regiones",
-    },
-    regionSearchShowTitle: {
-      en: "Show the region search box", fr: "Afficher la recherche de région",
-      de: "Regionssuche einblenden", ro: "Afișează căutarea regiunii",
-      nl: "Regiozoekvak tonen", el: "Εμφάνιση αναζήτησης περιοχής",
-      sk: "Zobraziť vyhľadávanie regiónu", ca: "Mostra el cercador de regions",
-      es: "Mostrar el buscador de regiones",
     },
     missingNoteTemplate: {
       en: "No data for this region: {list} (shown as grey / zero, not a real zero value).",
@@ -762,16 +813,20 @@
   function applyLanguage(lang) {
     currentLang = lang;
     document.documentElement.lang = lang;
-    document.getElementById("appTitle").textContent = t("appTitle");
+    document.getElementById("appTitle").textContent = t("appTitle", { year: currentYear });
     document.getElementById("banner").textContent = t("bannerText");
     document.getElementById("refCaption").textContent = t("refCaption");
     document.getElementById("storyHeading").textContent = t("storyHeading");
     document.getElementById("regionSearchLabel").textContent = t("regionSearchLabel");
     document.getElementById("regionSearchInput").placeholder = t("regionSearchPlaceholder");
-    updateRegionSearchToggle();
     const legendNoData = document.getElementById("legendNoDataLabel");
     if (legendNoData) legendNoData.textContent = t("legendNoData");
     if (pdfLinkEl) pdfLinkEl.title = t("pdfButtonTitle");
+    document.getElementById("printButtonLeft").title = t("pdfButtonTitle");
+    document.getElementById("yearSliderLabel").textContent = t("yearSliderLabel");
+    document.getElementById("binsSliderLabel").textContent = t("binsSliderLabel");
+    document.getElementById("yearSliderLabelMap").textContent = t("yearSliderLabel");
+    document.getElementById("binsSliderLabelMap").textContent = t("binsSliderLabel");
     updateOutermostExpandToggle();
     updateOutermostVisibilityToggle();
     updateLangSwitcherUI();
@@ -886,27 +941,35 @@
   Chart.register(referenceTicksPlugin);
 
   // --- tiny CSV parser (schema is fixed and known, so no library needed) ---
-  function parseCSV(text) {
+  // FASE 2: one row per (region, year) now, not one per region — groups by
+  // year first, then by nuts3 within that year, so the rest of the app can
+  // keep treating `indicatorData` (a single year's slice) as the same flat
+  // {nuts3: row} object it always was; see setYear() below.
+  function parseTimeseriesCSV(text) {
     // Split on \r?\n, not plain \n: pandas writes CRLF on Windows, and a
     // trailing "\r" left on the last column would make an empty (missing)
     // last-column cell parse as NaN instead of null (poisoning any mean
     // computed over it) while non-empty values happened to still parse fine.
     const [headerLine, ...lines] = text.trim().split(/\r?\n/);
     const headers = headerLine.split(",");
-    const byNuts3 = {};
+    const byYear = {};
     for (const line of lines) {
       const cells = line.split(",");
       const row = {};
       headers.forEach((h, i) => {
         const cell = cells[i] === "" ? null : cells[i];
-        // Every column except the two id columns is numeric — parse them
-        // all generically instead of naming each one, so new indicator/
-        // sub-indicator columns just work without touching this parser.
-        row[h] = (h === "nuts2" || h === "nuts3" || cell === null) ? cell : parseFloat(cell);
+        // Every column except the id columns (nuts2/nuts3/year) is numeric
+        // — parse them all generically instead of naming each one, so new
+        // indicator/sub-indicator columns just work without touching this
+        // parser.
+        if (h === "nuts2" || h === "nuts3" || cell === null) row[h] = cell;
+        else if (h === "year") row[h] = parseInt(cell, 10);
+        else row[h] = parseFloat(cell);
       });
-      byNuts3[row.nuts3] = row;
+      const yearGroup = byYear[row.year] || (byYear[row.year] = {});
+      yearGroup[row.nuts3] = row;
     }
-    return byNuts3;
+    return byYear;
   }
 
   // --- choropleth color scale: one hue PER TAB, light -> dark = low -> high raw value ---
@@ -1001,6 +1064,24 @@
     return "#" + rgb.map((v) => v.toString(16).padStart(2, "0")).join("");
   }
 
+  // FASE 2: discrete classification — same fixed 0-100 scale as always
+  // (equal-width bins, not quantiles of whatever's on screen, so the scale
+  // stays absolute rather than becoming relative to the current year/tab),
+  // just stepped instead of smooth. Each bin's colour is valueToColor()
+  // sampled at that bin's midpoint, so bin colours are literally the same
+  // continuous ramp already used everywhere else — no new palette to
+  // invent or re-validate for CVD safety.
+  function binEdges(numBins) {
+    const width = 100 / numBins;
+    return Array.from({ length: numBins + 1 }, (_, i) => i * width);
+  }
+  function valueToBinColor(raw, ramp, numBins) {
+    if (raw === null || raw === undefined || Number.isNaN(raw)) return MISSING_COLOR;
+    const width = 100 / numBins;
+    const binIndex = Math.min(numBins - 1, Math.floor(raw / width));
+    return valueToColor(binIndex * width + width / 2, ramp);
+  }
+
   // Real basemap instead of a flat grey background — gives coastlines/
   // countries/labels for context, and makes similarly-toned choropleth
   // fills easier to read against a textured backdrop than a flat
@@ -1067,15 +1148,19 @@
     L.control.layers(layers, null, { position: "topleft", collapsed: true }).addTo(targetMap);
   }
 
-  // --- PDF export: page 1 = the map as currently shown (choropleth, legend,
-  // outermost-region insets, whichever basemap is active), page 2 = the
-  // side panel (selected region's chart + reference lines), if a region is
-  // selected. Pure client-side (html2canvas renders the DOM to a canvas,
-  // jsPDF lays the canvases into a downloadable PDF) — no server involved,
-  // consistent with the rest of this static site.
-  async function captureElementToPdfPage(pdf, element, isFirstPage) {
+  // --- PDF export: page 1 = the text+chart panel, portrait; page 2 = the
+  // map (choropleth, legend, outermost-region insets, whichever basemap is
+  // active), landscape — fixed order/orientation (FASE 2), not
+  // auto-detected from each element's own aspect ratio, and always both
+  // pages regardless of whether a region is selected (page 1 just shows
+  // whatever the panel currently displays, selected or not). Pure
+  // client-side (html2canvas renders the DOM to a canvas, jsPDF lays the
+  // canvases into a downloadable PDF) — no server involved, consistent
+  // with the rest of this static site. Both print buttons (map panel, left
+  // panel) call this same function, so "identical result from either
+  // button" needs no separate handling.
+  async function captureElementToPdfPage(pdf, element, isFirstPage, orientation) {
     const canvas = await html2canvas(element, { useCORS: true, backgroundColor: "#ffffff", scale: 2 });
-    const orientation = canvas.width >= canvas.height ? "landscape" : "portrait";
     if (!isFirstPage) pdf.addPage("a4", orientation);
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
@@ -1088,15 +1173,33 @@
 
   async function exportToPdf() {
     const { jsPDF } = window.jspdf;
-    const mapEl = document.getElementById("mapWrap");
-    const firstOrientation = mapEl.offsetWidth >= mapEl.offsetHeight ? "landscape" : "portrait";
-    const pdf = new jsPDF({ orientation: firstOrientation, unit: "mm", format: "a4" });
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-    await captureElementToPdfPage(pdf, mapEl, true);
-    if (currentRow) await captureElementToPdfPage(pdf, document.getElementById("panelInner"), false);
+    await captureElementToPdfPage(pdf, document.getElementById("panelInner"), true, "portrait");
+    await captureElementToPdfPage(pdf, document.getElementById("mapWrap"), false, "landscape");
 
     const regionPart = currentRow ? `_${currentRow.nuts3}` : "";
     pdf.save(`mapdem_${activeDomainKey}${regionPart}.pdf`);
+  }
+
+  // Shared "busy while exporting" behaviour for any print button (the
+  // map's own Leaflet control, and the plain button in the left panel) —
+  // swaps in an ellipsis, ignores repeat clicks, restores the original
+  // icon and reports failures the same way in both places.
+  function runPdfExport(buttonEl) {
+    if (buttonEl.dataset.busy) return;
+    buttonEl.dataset.busy = "1";
+    const original = buttonEl.innerHTML;
+    buttonEl.innerHTML = "…";
+    exportToPdf()
+      .catch((err) => {
+        console.error("PDF export failed:", err);
+        alert("Could not generate the PDF — see the browser console for details.");
+      })
+      .finally(() => {
+        buttonEl.innerHTML = original;
+        delete buttonEl.dataset.busy;
+      });
   }
 
   let pdfLinkEl = null;
@@ -1137,23 +1240,33 @@
       L.DomEvent.disableClickPropagation(container);
       L.DomEvent.on(link, "click", (e) => {
         L.DomEvent.preventDefault(e);
-        if (link.dataset.busy) return; // ignore repeat clicks while exporting
-        link.dataset.busy = "1";
-        const original = link.innerHTML;
-        link.innerHTML = "…";
-        exportToPdf()
-          .catch((err) => {
-            console.error("PDF export failed:", err);
-            alert("Could not generate the PDF — see the browser console for details.");
-          })
-          .finally(() => {
-            link.innerHTML = original;
-            delete link.dataset.busy;
-          });
+        runPdfExport(link);
       });
       return container;
     },
   });
+
+  // FASE 2: second print button, in the left panel next to the new
+  // sliders — same icon, same shared runPdfExport(), so it produces
+  // exactly the same PDF as the map's own button.
+  function buildLeftPrintButton() {
+    const btn = document.getElementById("printButtonLeft");
+    btn.innerHTML = PDF_ICON_SVG;
+    btn.title = t("pdfButtonTitle");
+    btn.addEventListener("click", () => runPdfExport(btn));
+  }
+
+  // FASE 2: year + bins sliders, one pair in the left panel and one pair
+  // in the map panel (where #banner used to sit) — both pairs share the
+  // same onYearInput/onBinsInput handlers, which is what keeps every
+  // slider in sync with the others (see setYear()/syncYearSliders() and
+  // syncBinsSliders() above).
+  function buildTimeControls() {
+    document.getElementById("yearSliderLeft").addEventListener("input", onYearInput);
+    document.getElementById("yearSliderMap").addEventListener("input", onYearInput);
+    document.getElementById("binsSliderLeft").addEventListener("input", onBinsInput);
+    document.getElementById("binsSliderMap").addEventListener("input", onBinsInput);
+  }
 
   let map, geoLayer, selectedLayer;
   const insetMaps = [];
@@ -1163,6 +1276,9 @@
   // the region search widget resolve a typed name back to a real
   // {feature, layer} pair without needing its own separate lookup.
   const featuresByNuts3 = {};
+  // FASE 2: discrete classification (2-6 bins, synced sliders) replacing
+  // the old plain continuous scale.
+  let numBins = 5;
   const STROKE_DEFAULT = { color: "#555555", weight: 1, fillOpacity: 0.85 };
   const STROKE_HOVER = { color: "#312E81", weight: 2, fillOpacity: 1 };
   // Status colour (selection), not a domain colour — deliberately outside
@@ -1179,13 +1295,14 @@
     const row = indicatorData[feature.properties.nuts3];
     const domain = domainsByKey[activeDomainKey];
     const raw = row ? row[activeDomainKey] : null;
-    // Colour follows the raw 0-100 value directly (light = low, dark = high)
-    // — same convention as the bar chart's x-axis and the legend's numeric
-    // scale, always ascending left-to-right regardless of the domain's own
-    // direction. For a low_is_good domain, dark therefore means "worse", not
+    // Colour follows the raw 0-100 value (light = low, dark = high),
+    // stepped into numBins discrete classes (FASE 2) — same convention as
+    // the bar chart's x-axis and the legend's numeric scale, always
+    // ascending left-to-right regardless of the domain's own direction.
+    // For a low_is_good domain, dark therefore means "worse", not
     // "better" — the direction hint next to the domain title is what tells
     // the reader which way is good for that particular tab.
-    return { ...STROKE_DEFAULT, fillColor: valueToColor(raw, domain.ramp) };
+    return { ...STROKE_DEFAULT, fillColor: valueToBinColor(raw, domain.ramp, numBins) };
   }
 
   // Floating value tooltip on hover, same idea as the bar chart's own
@@ -1351,21 +1468,9 @@
     btn.title = t(outermostExpanded ? "outermostCollapseTitle" : "outermostExpandTitle");
   }
 
-  // The banner only needs to dodge the quadrant while it's both expanded
-  // AND actually shown — kept as its own function (not inlined at each
-  // call site) because it has to be re-run from two different toggles
-  // (expand and visibility), and forgetting one of them is exactly the
-  // bug this fixes: hiding an expanded quadrant used to leave the banner
-  // squeezed into the space of a panel that was no longer there, with no
-  // way back to full width short of re-showing and re-collapsing it.
-  function syncBannerInsetSpace() {
-    document.getElementById("banner").classList.toggle("insetExpanded", outermostVisible && outermostExpanded);
-  }
-
   function toggleOutermostExpanded() {
     outermostExpanded = !outermostExpanded;
     document.getElementById("outermostInset").classList.toggle("expanded", outermostExpanded);
-    syncBannerInsetSpace();
     updateOutermostExpandToggle();
     // Leaflet doesn't notice its container's CSS size changing on its own —
     // invalidateSize() re-measures it, but only after the width/height
@@ -1411,7 +1516,6 @@
     document.getElementById("outermostInset").hidden = !outermostVisible;
     const expandBtn = document.getElementById("outermostExpandToggle");
     if (expandBtn) expandBtn.hidden = !outermostVisible;
-    syncBannerInsetSpace();
     updateOutermostVisibilityToggle();
   }
 
@@ -1437,25 +1541,31 @@
     return directionHintFor(domain.direction);
   }
 
+  // FASE 2: one row per bin (darkest = highest raw value, same ascending
+  // convention as before, still independent of the domain's own
+  // direction — see choroplethStyle()'s comment for why). Rebuilt on every
+  // domain switch and every bins-slider move, same trigger points
+  // repaintChoropleth() already uses.
   function updateChoroplethLegend() {
     const domain = domainsByKey[activeDomainKey];
     const title = document.getElementById("choroplethLegendTitle");
     title.textContent = pick(domain.shortLabel);
     title.style.color = domain.color;
     document.getElementById("choroplethLegendDirection").textContent = `(${directionHint(domain)})`;
-    document.getElementById("choroplethGradientBar").style.background =
-      `linear-gradient(to right, ${valueToColor(0, domain.ramp)}, ${valueToColor(100, domain.ramp)})`;
 
-    // Always ascending 0 -> 100 left to right, same convention on every tab
-    // and matching the bar chart's own x-axis — the colour follows the raw
-    // value directly now (see choroplethStyle), so the axis never needs to
-    // flip per domain the way it used to.
-    const scale = document.getElementById("choroplethGradientScale");
-    scale.innerHTML = "";
-    for (const v of [0, 50, 100]) {
-      const span = document.createElement("span");
-      span.textContent = v;
-      scale.appendChild(span);
+    const edges = binEdges(numBins);
+    const rows = document.getElementById("choroplethBinRows");
+    rows.innerHTML = "";
+    for (let i = 0; i < numBins; i++) {
+      const row = document.createElement("div");
+      row.className = "binRow";
+      const swatch = document.createElement("span");
+      swatch.className = "binSwatch";
+      swatch.style.background = valueToColor(edges[i] + (100 / numBins) / 2, domain.ramp);
+      const label = document.createElement("span");
+      label.textContent = `${Math.round(edges[i])}–${Math.round(edges[i + 1])}`;
+      row.append(swatch, label);
+      rows.appendChild(row);
     }
   }
 
@@ -1890,37 +2000,59 @@
     });
   }
 
-  // Hides/shows the search box (input + listbox + status), independently
-  // of buildOutermostVisibilityToggle() above — same idea (mobile screens
-  // don't have room to keep every panel expanded at once), but a separate
-  // piece of state since the two toggle unrelated parts of the page.
-  let regionSearchVisible = true;
-
-  function buildRegionSearchToggle() {
-    document.getElementById("regionSearchToggle").addEventListener("click", toggleRegionSearchVisibility);
-    updateRegionSearchToggle();
-  }
-
-  function updateRegionSearchToggle() {
-    const btn = document.getElementById("regionSearchToggle");
-    btn.innerHTML = regionSearchVisible ? HIDE_ICON_SVG : SHOW_ICON_SVG;
-    btn.title = t(regionSearchVisible ? "regionSearchHideTitle" : "regionSearchShowTitle");
-  }
-
-  function toggleRegionSearchVisibility() {
-    regionSearchVisible = !regionSearchVisible;
-    const input = document.getElementById("regionSearchInput");
-    // Blur before hiding, not after: closes any open listbox through the
-    // input's own existing blur handler instead of duplicating that logic.
-    if (!regionSearchVisible) input.blur();
-    input.hidden = !regionSearchVisible;
-    updateRegionSearchToggle();
-  }
-
   let indicatorData = {};
   let referenceAverages = {};
   let regionNames = {};
+  let allColumnKeys = [];
   let chart;
+  // FASE 2: time dimension — dataByYear holds every year's slice as it
+  // was already shaped ({nuts3: row}); indicatorData always points at
+  // whichever year is currently selected, so every function that reads
+  // indicatorData (choroplethStyle, buildChart, mapTooltipHtml, the region
+  // search…) keeps working unchanged, oblivious to years entirely.
+  let dataByYear = {};
+  let currentYear = 2026;
+
+  // The one place a year change actually happens — re-slices
+  // indicatorData, recomputes the reference averages from that slice (they
+  // depend on which year's values are in it), repaints the map, refreshes
+  // the chart if a region is selected, and updates the title/sliders.
+  function setYear(year) {
+    currentYear = year;
+    indicatorData = dataByYear[year];
+    referenceAverages = computeReferenceAverages(indicatorData, allColumnKeys);
+    if (geoLayer) repaintChoropleth();
+    if (currentRow) buildChart(indicatorData[currentRow.nuts3]);
+    document.getElementById("appTitle").textContent = t("appTitle", { year });
+    syncYearSliders();
+  }
+
+  function onYearInput(e) {
+    setYear(parseInt(e.target.value, 10));
+  }
+  function syncYearSliders() {
+    for (const id of ["yearSliderLeft", "yearSliderMap"]) {
+      document.getElementById(id).value = currentYear;
+    }
+    for (const id of ["yearValueLeft", "yearValueMap"]) {
+      document.getElementById(id).textContent = currentYear;
+    }
+  }
+
+  function onBinsInput(e) {
+    numBins = parseInt(e.target.value, 10);
+    if (geoLayer) repaintChoropleth();
+    updateChoroplethLegend();
+    syncBinsSliders();
+  }
+  function syncBinsSliders() {
+    for (const id of ["binsSliderLeft", "binsSliderMap"]) {
+      document.getElementById(id).value = numBins;
+    }
+    for (const id of ["binsValueLeft", "binsValueMap"]) {
+      document.getElementById(id).textContent = numBins;
+    }
+  }
 
   // Static UI chrome (title, banner, hints, caption) doesn't depend on the
   // fetched data, so it's translated immediately — no flash of the wrong
@@ -1929,7 +2061,8 @@
   buildOutermostVisibilityToggle();
   buildOutermostExpandToggle();
   buildRegionSearch();
-  buildRegionSearchToggle();
+  buildLeftPrintButton();
+  buildTimeControls();
   applyLanguage(currentLang);
 
   Promise.all([
@@ -1938,7 +2071,7 @@
     fetch(NAMES_URL).then((r) => r.json()),
     fetch(HIERARCHY_URL).then((r) => r.json()),
   ]).then(([geojson, csvText, names, hierarchy]) => {
-    indicatorData = parseCSV(csvText);
+    dataByYear = parseTimeseriesCSV(csvText);
     regionNames = names;
 
     domainOrder = Object.keys(hierarchy);
@@ -1960,8 +2093,8 @@
         })),
       };
     });
-    const allColumnKeys = domainOrder.flatMap((k) => [k, ...domainsByKey[k].subs.map((s) => s.key)]);
-    referenceAverages = computeReferenceAverages(indicatorData, allColumnKeys);
+    allColumnKeys = domainOrder.flatMap((k) => [k, ...domainsByKey[k].subs.map((s) => s.key)]);
+    setYear(currentYear);
 
     buildDomainTabs();
     buildRefLegend();

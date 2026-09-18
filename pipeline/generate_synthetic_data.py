@@ -310,30 +310,63 @@ def load_all_nuts3_regions(gpkg_path=GPKG_PATH, table=GPKG_TABLE):
     return [(props, hires.get(props["NUTS_ID"], geometry)) for props, geometry in regions]
 
 
+# FASE 2 (2026-09-18, "conversión dinámica"): one row per (region, year)
+# instead of one per region, so docs/index.html's year slider has an actual
+# time series to page through, not the same value repeated 11 times.
+YEARS = list(range(2016, 2027))
+
+
+def _random_walk_series(n_years):
+    """A bounded random walk across `n_years` values in [0, 100] for one
+    sub-indicator of one region — a base value in the first year, then each
+    later year nudges from the previous one by up to +/-4 points, clipped
+    back into range. Gives the year slider a plausible gradual trend to
+    show instead of independent per-year noise (which would just flicker).
+    Missingness (~20%, matching the original single-year model) is applied
+    per year AFTER the walk is generated, so a region that happens to be
+    missing in one year doesn't break the underlying trend for its
+    neighbouring years — the walk continues underneath, only that year's
+    value is hidden."""
+    values = [round(random.uniform(0, 100), 1)]
+    for _ in range(n_years - 1):
+        nxt = min(100, max(0, values[-1] + random.uniform(-4, 4)))
+        values.append(round(nxt, 1))
+    return [None if random.random() <= 0.2 else v for v in values]
+
+
 def make_indicator_table(regions):
-    """One row per real NUTS3 region: the 3 sub-indicators of each domain
-    (each independently ~20% missing, simulating "highly inhomogeneous"
-    real-world missingness) plus the domain's own value, computed from
-    those subs — not drawn independently. NUTS2 parent is derived from the
-    code's standard Eurostat nesting (NUTS3 code's first 4 characters)."""
+    """One row per (real NUTS3 region, year) for YEARS (2016-2026 inclusive):
+    the 3 sub-indicators of each domain (each an independent random walk
+    across years, ~20% missing per year) plus the domain's own value for
+    that year, computed from that year's available subs — not drawn
+    independently. NUTS2 parent is derived from the code's standard
+    Eurostat nesting (NUTS3 code's first 4 characters)."""
     rows = []
     for props, _geometry in regions:
         nuts3 = props["NUTS_ID"]
-        row = {"nuts2": nuts3[:4], "nuts3": nuts3}
-        for domain_key, domain in DOMAINS.items():
-            sub_values = {}
-            for sub_key in domain["subs"]:
-                is_missing = random.random() <= 0.2
-                sub_values[sub_key] = None if is_missing else round(random.uniform(0, 100), 1)
-
-            oriented = [
-                v if sub_direction == domain["direction"] else (100 - v)
-                for sub_key, (sub_direction, _desc) in domain["subs"].items()
-                if (v := sub_values[sub_key]) is not None
-            ]
-            row[domain_key] = round(sum(oriented) / len(oriented), 1) if oriented else None
-            row.update(sub_values)
-        rows.append(row)
+        nuts2 = nuts3[:4]
+        # One random-walk series per sub-indicator, one value per year in
+        # YEARS, generated once per region so the domain's oriented mean
+        # below can pull the same year's value out of each sub's series.
+        domain_sub_series = {
+            domain_key: {sub_key: _random_walk_series(len(YEARS)) for sub_key in domain["subs"]}
+            for domain_key, domain in DOMAINS.items()
+        }
+        for year_idx, year in enumerate(YEARS):
+            row = {"year": year, "nuts2": nuts2, "nuts3": nuts3}
+            for domain_key, domain in DOMAINS.items():
+                sub_values = {
+                    sub_key: series[year_idx]
+                    for sub_key, series in domain_sub_series[domain_key].items()
+                }
+                oriented = [
+                    v if sub_direction == domain["direction"] else (100 - v)
+                    for sub_key, (sub_direction, _desc) in domain["subs"].items()
+                    if (v := sub_values[sub_key]) is not None
+                ]
+                row[domain_key] = round(sum(oriented) / len(oriented), 1) if oriented else None
+                row.update(sub_values)
+            rows.append(row)
     return pd.DataFrame(rows)
 
 
