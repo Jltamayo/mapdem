@@ -14,7 +14,17 @@
      visible even before clicking, not just once a tab is active. White
      bold text throughout (the dark ramp end always clears contrast for
      white text, same way the choropleth's dark end does). */
-  #domainTabs { flex: 0 0 auto; display: flex; border-bottom: 1px solid #ccc; }
+  /* Sticky, not just fixed-at-top-of-flow: on narrow screens #app switches to
+     a column and the whole page scrolls (see the mobile media query below),
+     so a plain in-flow #domainTabs scrolls out of view the moment the user
+     scrolls down to the map — forcing a scroll back to the very top just to
+     switch domains. `position: sticky; top: 0` keeps it pinned to the
+     viewport's top edge instead, reachable from wherever the user has
+     scrolled to. Harmless on desktop, where #app itself fills the viewport
+     and #panel scrolls internally instead of the page, so this never
+     actually needs to stick there. */
+  #domainTabs { flex: 0 0 auto; display: flex; border-bottom: 1px solid #ccc;
+                position: sticky; top: 0; z-index: 1600; }
   #domainTabs button { flex: 1; padding: 10px 6px; border: none; cursor: pointer;
                         font-size: 13px; font-family: inherit;
                         background: var(--tab-bg); color: #ffffff; font-weight: bold;
