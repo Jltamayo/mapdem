@@ -292,8 +292,8 @@
       </div>
       <div class="sliderRow">
         <label id="binsSliderLabelMap" for="binsSliderMap">Bins</label>
-        <input id="binsSliderMap" type="range" min="2" max="6" step="1" value="5">
-        <span id="binsValueMap" class="sliderValue">5</span>
+        <input id="binsSliderMap" type="range" min="2" max="6" step="1" value="4">
+        <span id="binsValueMap" class="sliderValue">4</span>
       </div>
     </div>
     <div id="choroplethLegend">
@@ -345,8 +345,8 @@
           </div>
           <div class="sliderRow">
             <label id="binsSliderLabel" for="binsSliderLeft">Bins</label>
-            <input id="binsSliderLeft" type="range" min="2" max="6" step="1" value="5">
-            <span id="binsValueLeft" class="sliderValue">5</span>
+            <input id="binsSliderLeft" type="range" min="2" max="6" step="1" value="4">
+            <span id="binsValueLeft" class="sliderValue">4</span>
           </div>
         </div>
         <button type="button" id="printButtonLeft" class="outermostToolbarBtn"></button>
@@ -1159,8 +1159,59 @@
   // with the rest of this static site. Both print buttons (map panel, left
   // panel) call this same function, so "identical result from either
   // button" needs no separate handling.
+  // html2canvas's own SVG rendering is unreliable for Leaflet's vector
+  // layers specifically — confirmed by sampling the exported map page's
+  // pixels at a known coloured region: html2canvas returned the plain
+  // basemap-tile grey underneath, not that region's actual fill colour
+  // (the main map's SVG carries a much larger pan/zoom CSS transform than
+  // the small outermost-region insets, which came through fine — html2canvas
+  // seems to lose the polygon fills specifically past some transform
+  // magnitude). Fixed via html2canvas's own `onclone` hook: swap each
+  // Leaflet vector-layer <svg> for a plain <img> of the identical content
+  // (rasterised by the browser's own native SVG renderer instead of
+  // html2canvas's, via a data: URL) *inside the clone html2canvas is about
+  // to render*, rather than patching the finished canvas afterwards — an
+  // <img> is something html2canvas already renders reliably, and doing the
+  // swap before rendering means html2canvas still paints everything else
+  // (the legend/slider boxes sitting visually on top of the map) in its own
+  // correct DOM order around it, instead of a manual overlay redrawn last
+  // painting over UI chrome that should stay on top.
+  function svgElementToDataUrl(svgEl) {
+    const xml = new XMLSerializer().serializeToString(svgEl);
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
+  }
+
   async function captureElementToPdfPage(pdf, element, isFirstPage, orientation) {
-    const canvas = await html2canvas(element, { useCORS: true, backgroundColor: "#ffffff", scale: 2 });
+    const captureScale = 2;
+    const liveSvgs = Array.from(element.querySelectorAll(".leaflet-overlay-pane > svg"));
+    const dataUrls = liveSvgs.map(svgElementToDataUrl);
+    const canvas = await html2canvas(element, {
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      scale: captureScale,
+      onclone(clonedDoc) {
+        // onclone hands over the WHOLE cloned document, not just the
+        // captured element — querying unscoped would also match the map's
+        // SVGs while capturing #panelInner (a sibling with none of its
+        // own), outnumbering dataUrls and setting img.src to undefined.
+        // element.id always exists (panelInner/mapWrap), so its clone can
+        // be found by id and used to scope the query the same way
+        // liveSvgs was scoped.
+        const clonedRoot = clonedDoc.getElementById(element.id);
+        const clonedSvgs = clonedRoot.querySelectorAll(".leaflet-overlay-pane > svg");
+        // Same selector on the same cloned structure -> same order as
+        // liveSvgs, so pairing by index is reliable.
+        clonedSvgs.forEach((svg, i) => {
+          const img = clonedDoc.createElement("img");
+          img.src = dataUrls[i];
+          img.className = svg.getAttribute("class") || "";
+          img.setAttribute("style", svg.getAttribute("style") || "");
+          img.setAttribute("width", svg.getAttribute("width"));
+          img.setAttribute("height", svg.getAttribute("height"));
+          svg.replaceWith(img);
+        });
+      },
+    });
     if (!isFirstPage) pdf.addPage("a4", orientation);
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
@@ -1278,7 +1329,7 @@
   const featuresByNuts3 = {};
   // FASE 2: discrete classification (2-6 bins, synced sliders) replacing
   // the old plain continuous scale.
-  let numBins = 5;
+  let numBins = 4;
   const STROKE_DEFAULT = { color: "#555555", weight: 1, fillOpacity: 0.85 };
   const STROKE_HOVER = { color: "#312E81", weight: 2, fillOpacity: 1 };
   // Status colour (selection), not a domain colour — deliberately outside
